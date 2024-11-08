@@ -105,6 +105,7 @@ export default class Note {
     if (this.plugin.settings.usePastebin) {
       let pastebinApiKey = this.plugin.settings.pastebinApiKey;
       let pastebinUserKey = this.plugin.settings.pasteBinUserKey;
+      let expiry = this.plugin.settings.pastebinExpiry;
       const noteContent = await this.plugin.app.vault.read(this.file);
       console.log("noteContent", noteContent);
       requestUrl({
@@ -115,7 +116,7 @@ export default class Note {
         },
         body: `api_dev_key=${pastebinApiKey}&api_user_key=${pastebinUserKey}&api_option=paste&api_paste_private=1&api_paste_name=${
           this.file.basename
-        }&api_paste_expire_date=N&api_paste_format=text&api_paste_code=${encodeURIComponent(noteContent)}`,
+        }&api_paste_expire_date=${expiry}&api_paste_format=text&api_paste_code=${encodeURIComponent(noteContent)}`,
       })
         .then((res) => {
           console.log("res", res.text);
@@ -126,6 +127,7 @@ export default class Note {
           const suffix = pathSegments[pathSegments.length - 1];
           const obsidianUrl = `obsidian://send-note?sendurl=https://pastebin.com/raw/${suffix}&filename=${this.file.basename}.md`;
           console.log(obsidianUrl);
+          navigator.clipboard.writeText(obsidianUrl);
         })
         .catch((err) => {
           console.log("err", err);

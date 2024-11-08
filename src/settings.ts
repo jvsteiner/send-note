@@ -43,6 +43,7 @@ export interface SendNoteSettings {
   pastebinUsername: string;
   pastebinPassword: string;
   pasteBinUserKey: string;
+  pastebinExpiry: string;
 }
 
 export const DEFAULT_SETTINGS: SendNoteSettings = {
@@ -66,6 +67,7 @@ export const DEFAULT_SETTINGS: SendNoteSettings = {
   pastebinUsername: "",
   pastebinPassword: "",
   pasteBinUserKey: "",
+  pastebinExpiry: "1D",
 };
 
 export class SendNoteSettingsTab extends PluginSettingTab {
@@ -176,6 +178,20 @@ export class SendNoteSettingsTab extends PluginSettingTab {
             this.plugin.settings.pastebinPassword = value;
             await this.plugin.saveSettings();
             this.setUserKey();
+          });
+      });
+
+    // Pastebin expiry period
+    new Setting(containerEl)
+      .setName("Pastebin expiry")
+      .setDesc("Pastebin expiry period: N, 1D, 1W, 1M, 1Y")
+      .addText((inputEl) => {
+        inputEl
+          .setPlaceholder("Pastebin expiry period")
+          .setValue(this.plugin.settings.pastebinExpiry)
+          .onChange(async (value) => {
+            this.plugin.settings.pastebinExpiry = value;
+            await this.plugin.saveSettings();
           });
       });
 
