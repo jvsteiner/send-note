@@ -43,7 +43,7 @@ export default class SendNotePlugin extends Plugin {
       if (data.action === "send-note" && data.sendurl && data.filename) {
         requestUrl(data.sendurl)
           .then((response) => {
-            console.log(response.text);
+            // console.log(response.text);
             // check if file already exists
             let newFilename = data.filename;
             const file = this.app.vault.getAbstractFileByPath(data.filename);
@@ -264,12 +264,12 @@ export default class SendNotePlugin extends Plugin {
           if (linkEl?.innerText !== shareLink) return;
           // Remove existing elements
           // valueEl?.querySelectorAll('div.share-note-icons').forEach(el => el.remove())
-          if (valueEl && !valueEl.querySelector("div.share-note-icons")) {
+          if (valueEl && !valueEl.querySelector("div.send-note-icons")) {
             const iconsEl = document.createElement("div");
-            iconsEl.classList.add("share-note-icons");
+            iconsEl.classList.add("send-note-icons");
             // Re-share note icon
             const shareIcon = iconsEl.createEl("span");
-            shareIcon.title = "Re-share note";
+            shareIcon.title = "Re-send note";
             setIcon(shareIcon, "upload-cloud");
             shareIcon.onclick = () => this.uploadNote();
             // Copy to clipboard icon
@@ -278,11 +278,11 @@ export default class SendNotePlugin extends Plugin {
             setIcon(copyIcon, "copy");
             copyIcon.onclick = async () => {
               await navigator.clipboard.writeText(shareLink);
-              new StatusMessage("📋 Shared link copied to clipboard");
+              new StatusMessage("📋 Sending link copied to clipboard");
             };
             // Delete shared note icon
             const deleteIcon = iconsEl.createEl("span");
-            deleteIcon.title = "Delete shared note";
+            deleteIcon.title = "Delete sent note";
             setIcon(deleteIcon, "trash-2");
             deleteIcon.onclick = () => this.deleteSharedNote(activeFile);
             valueEl.prepend(iconsEl);

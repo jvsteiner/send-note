@@ -50,7 +50,7 @@ export const DEFAULT_SETTINGS: SendNoteSettings = {
   server: "https://api.note.sx",
   uid: "",
   apiKey: "",
-  yamlField: "share",
+  yamlField: "send",
   noteWidth: "",
   theme: "",
   themeMode: ThemeMode["Same as theme"],

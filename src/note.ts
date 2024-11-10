@@ -107,7 +107,13 @@ export default class Note {
       let pastebinUserKey = this.plugin.settings.pasteBinUserKey;
       let expiry = this.plugin.settings.pastebinExpiry;
       const noteContent = await this.plugin.app.vault.read(this.file);
-      console.log("noteContent", noteContent);
+      // console.log("noteContent", noteContent);
+      await this.plugin.app.fileManager.processFrontMatter(this.file, (frontmatter) => {
+        if ((frontmatter["send_link"] = true)) {
+          delete frontmatter["send_link"];
+        }
+      });
+
       requestUrl({
         url: "https://pastebin.com/api/api_post.php",
         method: "POST",
@@ -119,15 +125,20 @@ export default class Note {
         }&api_paste_expire_date=${expiry}&api_paste_format=text&api_paste_code=${encodeURIComponent(noteContent)}`,
       })
         .then((res) => {
-          console.log("res", res.text);
+          // console.log("res", res.text);
           const urlObj = new URL(res.text);
           // Get the pathname and split by "/"
           const pathSegments = urlObj.pathname.split("/");
           // The last segment will be the suffix
           const suffix = pathSegments[pathSegments.length - 1];
           const obsidianUrl = `obsidian://send-note?sendurl=https://pastebin.com/raw/${suffix}&filename=${this.file.basename}.md`;
-          console.log(obsidianUrl);
+          // console.log(obsidianUrl);
           navigator.clipboard.writeText(obsidianUrl);
+          this.plugin.app.fileManager.processFrontMatter(this.file, (frontmatter) => {
+            if ((frontmatter["send_link"] = true)) {
+              frontmatter["send_link"] = obsidianUrl;
+            }
+          });
         })
         .catch((err) => {
           console.log("err", err);
