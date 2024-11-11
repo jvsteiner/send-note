@@ -1,18 +1,14 @@
-# Share Note
+# Send Note
 
-Instantly share / publish a note. Notes are shared in markdown format, and are encrypted by default. This plugin uses Pastebin for storage. When shared, the note is upload to pastebin, and a url is created. Other users who receive the url, can open it in obsidian, and the note will be added to their vault. This allows users a quick and easy way to transport notes from one user to another, as long as both users have this plugin installed.
+Instantly share / publish a note using pastebin as a medium of exchange. Notes are shared in markdown format, and are encrypted by default. This plugin uses Pastebin for storage. When shared, the note is upload to pastebin, and a url is created. Other users who receive the url, can open it in obsidian, and the note will be added to their vault. This allows users a quick and easy way to transport notes from one user to another, as long as both users have this plugin installed.
 
-To send a note, choose `Send Note` from the command palette, or click the `⋮` menu in any note and choose `Copy shared link`
-
-<img width="260" src="https://github.com/alangrainger/obsidian-share/assets/16197738/69b270a7-c064-4915-9c81-698ae5b54b44">
+To send a note, choose `Send Note` from the command palette.
 
 ## Usage
 
-Use the `Share Note` command from the Command Palette. You can map it to a hotkey to make things faster.
+Use the `Send Note` command from the Command Palette. You can map it to a hotkey to make things faster.
 
-The first time a file is shared, the plugin will automatically upload all your theme styles. The next time you share a file, it will use the previously uploaded theme files.
-
-If you want to force the theme CSS to update, use the command `Force re-upload of all data for this note`.
+The yaml frontmatter will be updated to provide access to the share url for you to send to other users. You can also delete the note from the Pastebin backend by clicking the `Delete Note` button in the frontmatter.
 
 ---
 
