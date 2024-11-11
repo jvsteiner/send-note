@@ -23,48 +23,32 @@ export enum YamlField {
 }
 
 export interface SendNoteSettings {
-  server: string;
-  uid: string;
-  apiKey: string;
   yamlField: string;
-  noteWidth: string;
-  theme: string; // The name of the theme stored on the server
-  themeMode: ThemeMode;
   titleSource: TitleSource;
   removeYaml: boolean;
-  removeBacklinksFooter: boolean;
-  expiry: string;
   clipboard: boolean;
   shareUnencrypted: boolean;
-  authRedirect: string | null;
   debug: number;
   pastebinApiKey: string;
   pastebinUsername: string;
   pastebinPassword: string;
   pastebinUserKey: string;
+  pastebinPublic: string;
   pastebinExpiry: string;
 }
 
 export const DEFAULT_SETTINGS: SendNoteSettings = {
-  server: "https://api.note.sx",
-  uid: "",
-  apiKey: "",
   yamlField: "send",
-  noteWidth: "",
-  theme: "",
-  themeMode: ThemeMode["Same as theme"],
   titleSource: TitleSource["Note title"],
-  removeYaml: true,
-  removeBacklinksFooter: true,
-  expiry: "",
+  removeYaml: false,
   clipboard: true,
   shareUnencrypted: false,
-  authRedirect: null,
   debug: 0,
   pastebinApiKey: "",
   pastebinUsername: "",
   pastebinPassword: "",
   pastebinUserKey: "",
+  pastebinPublic: "1",
   pastebinExpiry: "1D",
 };
 
@@ -155,6 +139,20 @@ export class SendNoteSettingsTab extends PluginSettingTab {
           .setValue(this.plugin.settings.pastebinExpiry)
           .onChange(async (value) => {
             this.plugin.settings.pastebinExpiry = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    // Pastebin public setting
+    new Setting(containerEl)
+      .setName("Pastebin public setting")
+      .setDesc("Pastebin public: 0 for public, 1 for unlisted, 2 for private. Default is 1")
+      .addText((inputEl) => {
+        inputEl
+          .setPlaceholder("Pastebinpublic setting")
+          .setValue(this.plugin.settings.pastebinPublic)
+          .onChange(async (value) => {
+            this.plugin.settings.pastebinPublic = value;
             await this.plugin.saveSettings();
           });
       });

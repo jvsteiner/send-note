@@ -267,16 +267,6 @@ export default class SendNotePlugin extends Plugin {
     }, 50);
   }
 
-  /**
-   * Redirect a user back to their position in the flow after they finish the auth.
-   * NULL to clear the redirection.
-   */
-  async authRedirect(value: string | null) {
-    this.settings.authRedirect = value;
-    await this.saveSettings();
-    if (value) window.open(this.settings.server + "/v1/account/get-key?id=" + this.settings.uid);
-  }
-
   hasSharedFile(file?: TFile) {
     if (!file) {
       file = this.app.workspace.getActiveFile() || undefined;

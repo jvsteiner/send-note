@@ -2,7 +2,7 @@ import { CachedMetadata, requestUrl, TFile, View, WorkspaceLeaf } from "obsidian
 import { encryptString } from "./crypto";
 import SharePlugin from "./main";
 import StatusMessage, { StatusType } from "./StatusMessage";
-import NoteTemplate, { ElementStyle } from "./NoteTemplate";
+import { ElementStyle } from "./NoteTemplate";
 import { YamlField } from "./settings";
 import { CheckFilesResult } from "./api";
 
@@ -75,6 +75,23 @@ export default class Note {
     return this.plugin.field(key);
   }
 
+  /**
+   * Shares the current note by uploading its content to Pastebin and generating a shareable Obsidian URL.
+   *
+   * This method performs the following steps:
+   * 1. Displays a status message indicating that the note is being processed.
+   * 2. Reads the content of the current note.
+   * 3. Encrypts the note content if the user has not opted to share unencrypted notes.
+   * 4. Removes the "send_link" frontmatter from the note if it exists.
+   * 5. Prepares the data required for the Pastebin API request.
+   * 6. Sends the note content to Pastebin.
+   * 7. Generates an Obsidian URL for the shared note.
+   * 8. Copies the generated URL to the clipboard.
+   * 9. Updates the note's frontmatter with the generated URL.
+   * 10. Adds share icons to the note.
+   *
+   * @returns {Promise<void>} A promise that resolves when the note has been successfully shared.
+   */
   async share() {
     // Create a semi-permanent status notice which we can update
     this.status = new StatusMessage(
@@ -83,10 +100,7 @@ export default class Note {
       60 * 1000
     );
 
-    let pastebinApiKey = this.plugin.settings.pastebinApiKey;
-    let pastebinUserKey = this.plugin.settings.pastebinUserKey;
     let shareUnencrypted = this.plugin.settings.shareUnencrypted;
-    let expiry = this.plugin.settings.pastebinExpiry;
     let plainTextNoteContent = await this.plugin.app.vault.read(this.file);
     let noteContent = "";
     let encryptionKey = "";
@@ -106,12 +120,12 @@ export default class Note {
     });
 
     const pastebinData = {
-      api_dev_key: pastebinApiKey,
-      api_user_key: pastebinUserKey,
+      api_dev_key: this.plugin.settings.pastebinApiKey,
+      api_user_key: this.plugin.settings.pastebinUserKey,
       api_option: "paste",
       api_paste_private: 1,
       api_paste_name: this.file.basename,
-      api_paste_expire_date: expiry,
+      api_paste_expire_date: this.plugin.settings.pastebinExpiry,
       api_paste_format: "text",
       api_paste_code: encodeURIComponent(noteContent),
     };
@@ -151,11 +165,14 @@ export default class Note {
       .catch((err) => {
         console.log("err", err);
       });
-    // send the note to pastebin
-
     return;
   }
 
+  /**
+   * Finds the callout icon CSS rule and returns its value.
+   * @param test - A function that takes a CSS selector text and returns a boolean indicating whether the rule matches the test.
+   * @returns The value of the `--callout-icon` CSS property if a matching rule is found, otherwise an empty string.
+   */
   getCalloutIcon(test: (selectorText: string) => boolean) {
     const rule = this.cssRules.find(
       (rule: CSSStyleRule) =>
@@ -167,6 +184,11 @@ export default class Note {
     return "";
   }
 
+  /**
+   * Reduces an array of HTML elements to a single string containing their outer HTML.
+   * @param sections - An array of objects containing HTML elements.
+   * @returns A string containing the concatenated outer HTML of all the elements in the input array.
+   */
   reduceSections(sections: { el: HTMLElement }[]) {
     return sections.reduce((p: string, c) => p + c.el.outerHTML, "");
   }
@@ -186,7 +208,8 @@ export default class Note {
   }
 
   /**
-   * Enable/disable encryption for the note
+   * Enables or disables encryption for the note.
+   * @param isPlainText - Indicates whether the note should be shared as plain text (not encrypted).
    */
   shareAsPlainText(isPlainText: boolean) {
     this.isEncrypted = !isPlainText;
