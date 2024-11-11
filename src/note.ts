@@ -16,35 +16,10 @@ export interface SharedNote extends SharedUrl {
   file: TFile;
 }
 
-export interface PreviewSection {
-  el: HTMLElement;
-}
-
-export interface Renderer {
-  parsing: boolean;
-  pusherEl: HTMLElement;
-  previewEl: HTMLElement;
-  sections: PreviewSection[];
-}
-
-export interface ViewModes extends View {
-  getViewType: any;
-  getDisplayText: any;
-  modes: {
-    preview: {
-      renderer: Renderer;
-    };
-  };
-}
-
 export default class Note {
   plugin: SharePlugin;
   leaf: WorkspaceLeaf;
   status: StatusMessage;
-  css: string;
-  cssRules: CSSRule[];
-  cssResult: CheckFilesResult["css"];
-  contentDom: Document;
   meta: CachedMetadata | null;
   isEncrypted = true;
   isForceUpload = false;
@@ -102,19 +77,19 @@ export default class Note {
 
     let shareUnencrypted = this.plugin.settings.shareUnencrypted;
     let plainTextNoteContent = await this.plugin.app.vault.read(this.file);
-    let noteContent = "";
-    let encryptionKey = "";
+    let noteContent: string = "";
+    let encryptionKey: string = "";
     //encrypt note content
     if (shareUnencrypted) {
       // The user has opted to share unencrypted by default
       noteContent = plainTextNoteContent;
     } else {
       const encryptedNoteContent = await encryptString(plainTextNoteContent);
-      noteContent = JSON.stringify(encryptedNoteContent.ciphertext);
+      noteContent = JSON.stringify(encryptedNoteContent.ciphertext.join(""));
       encryptionKey = encryptedNoteContent.key;
     }
     await this.plugin.app.fileManager.processFrontMatter(this.file, (frontmatter) => {
-      if ((frontmatter["send_link"] = true)) {
+      if (frontmatter["send_link"] === true) {
         delete frontmatter["send_link"];
       }
     });
@@ -130,7 +105,7 @@ export default class Note {
       api_paste_code: encodeURIComponent(noteContent),
     };
 
-    const body = createQueryString(pastebinData);
+    const body = this.createQueryString(pastebinData);
 
     requestUrl({
       url: "https://pastebin.com/api/api_post.php",
@@ -141,11 +116,12 @@ export default class Note {
       body: body,
     })
       .then((res) => {
-        // console.log("res", res.text);
-        const urlObj = new URL(res.text);
-        // Get the pathname and split by "/"
+        const responseText = res.text.trim();
+        if (!responseText.startsWith("http")) {
+          throw new Error("Invalid URL response from Pastebin");
+        }
+        const urlObj = new URL(responseText);
         const pathSegments = urlObj.pathname.split("/");
-        // The last segment will be the suffix
         const suffix = pathSegments[pathSegments.length - 1];
         let obsidianUrl = "";
         if (shareUnencrypted) {
@@ -164,33 +140,14 @@ export default class Note {
       })
       .catch((err) => {
         console.log("err", err);
+        this.status = new StatusMessage(
+          err +
+            ". The note uploading failed.  If you got status 422, it might be because you have exceeded your allowed number of pastes for 24 hours.",
+          StatusType.Error,
+          5 * 1000
+        );
       });
     return;
-  }
-
-  /**
-   * Finds the callout icon CSS rule and returns its value.
-   * @param test - A function that takes a CSS selector text and returns a boolean indicating whether the rule matches the test.
-   * @returns The value of the `--callout-icon` CSS property if a matching rule is found, otherwise an empty string.
-   */
-  getCalloutIcon(test: (selectorText: string) => boolean) {
-    const rule = this.cssRules.find(
-      (rule: CSSStyleRule) =>
-        rule.selectorText && test(rule.selectorText) && rule.style.getPropertyValue("--callout-icon")
-    ) as CSSStyleRule;
-    if (rule) {
-      return rule.style.getPropertyValue("--callout-icon");
-    }
-    return "";
-  }
-
-  /**
-   * Reduces an array of HTML elements to a single string containing their outer HTML.
-   * @param sections - An array of objects containing HTML elements.
-   * @returns A string containing the concatenated outer HTML of all the elements in the input array.
-   */
-  reduceSections(sections: { el: HTMLElement }[]) {
-    return sections.reduce((p: string, c) => p + c.el.outerHTML, "");
   }
 
   /**
@@ -214,17 +171,17 @@ export default class Note {
   shareAsPlainText(isPlainText: boolean) {
     this.isEncrypted = !isPlainText;
   }
-}
 
-function createQueryString(params: Record<string, string | number | boolean | null | undefined>): string {
-  const searchParams = new URLSearchParams();
+  private createQueryString(params: Record<string, string | number | boolean | null | undefined>): string {
+    const searchParams = new URLSearchParams();
 
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== null && value !== undefined) {
-      // Convert the value to string before appending
-      searchParams.append(key, String(value));
-    }
-  });
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== null && value !== undefined) {
+        // Convert the value to string before appending
+        searchParams.append(key, String(value));
+      }
+    });
 
-  return searchParams.toString(); // This returns the query string e.g., 'key1=value1&key2=value2'
+    return searchParams.toString(); // This returns the query string e.g., 'key1=value1&key2=value2'
+  }
 }

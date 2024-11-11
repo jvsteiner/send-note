@@ -38,7 +38,7 @@ export default class SendNotePlugin extends Plugin {
           let noteContent = "";
           const file = this.app.vault.getAbstractFileByPath(data.filename);
           if (file) {
-            newFilename = data.filename.replace(".md", "-" + generateRandomString() + ".md");
+            newFilename = data.filename.replace(".md", "-" + this.generateRandomString() + ".md");
           } else {
             newFilename = data.filename;
           }
@@ -206,7 +206,7 @@ export default class SendNotePlugin extends Plugin {
           new StatusMessage("Deleting note...");
           // await this.api.deleteSharedNote(sharedFile.url);
 
-          await this.deletePaste(getIdentifier(sharedFile.url));
+          await this.deletePaste(this.getIdentifier(sharedFile.url));
 
           await this.app.fileManager.processFrontMatter(sharedFile.file, (frontmatter) => {
             // Remove the shared link
@@ -317,48 +317,48 @@ export default class SendNotePlugin extends Plugin {
       console.error("Network or parsing error:", error);
     }
   }
-}
 
-function generateRandomString(length = 5) {
-  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
+  private generateRandomString(length = 5) {
+    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let result = "";
 
-  for (let i = 0; i < length; i++) {
-    // Pick a random index from the characters string
-    const randomIndex = Math.floor(Math.random() * characters.length);
+    for (let i = 0; i < length; i++) {
+      // Pick a random index from the characters string
+      const randomIndex = Math.floor(Math.random() * characters.length);
 
-    // Append the character at the random index to the result string
-    result += characters.charAt(randomIndex);
+      // Append the character at the random index to the result string
+      result += characters.charAt(randomIndex);
+    }
+
+    return result;
   }
 
-  return result;
-}
+  private getIdentifier(url: string) {
+    try {
+      // Create a URL object from the given URL string
+      const urlObj = new URL(url);
 
-function getIdentifier(url: string) {
-  try {
-    // Create a URL object from the given URL string
-    const urlObj = new URL(url);
+      // Get the value of the 'sendurl' query parameter
+      const sendUrlParam = urlObj.searchParams.get("sendurl");
 
-    // Get the value of the 'sendurl' query parameter
-    const sendUrlParam = urlObj.searchParams.get("sendurl");
+      if (sendUrlParam) {
+        // Create a new URL object from the 'sendurl' parameter
+        const sendUrlObj = new URL(sendUrlParam);
 
-    if (sendUrlParam) {
-      // Create a new URL object from the 'sendurl' parameter
-      const sendUrlObj = new URL(sendUrlParam);
+        // Extract the pathname from the URL
+        const pathname = sendUrlObj.pathname;
 
-      // Extract the pathname from the URL
-      const pathname = sendUrlObj.pathname;
+        // Extract and return the identifier from the pathname
+        // Assuming the identifier is the part after the last '/' in the pathname
+        const identifier = pathname.substring(pathname.lastIndexOf("/") + 1);
 
-      // Extract and return the identifier from the pathname
-      // Assuming the identifier is the part after the last '/' in the pathname
-      const identifier = pathname.substring(pathname.lastIndexOf("/") + 1);
-
-      return identifier;
-    } else {
-      throw new Error("sendurl parameter not found");
+        return identifier;
+      } else {
+        throw new Error("sendurl parameter not found");
+      }
+    } catch (error) {
+      console.error("Invalid URL:", error);
+      return "";
     }
-  } catch (error) {
-    console.error("Invalid URL:", error);
-    return "";
   }
 }
