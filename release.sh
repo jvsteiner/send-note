@@ -13,14 +13,14 @@ git push --tags
 REPO="jvsteiner/send-note"  # Replace this with your actual owner/repo
 
 # Check if the required arguments are supplied
-if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 <tag> <release_name>"
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <release_name>"
     exit 1
 fi
 
 # Command line parameters
-TAG="$1"
-RELEASE_NAME="$2"
+TAG=$(git describe --tags --abbrev=0)
+RELEASE_NAME="$1"
 
 # Create a new release using the GitHub CLI
 gh release create "$TAG" \
