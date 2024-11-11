@@ -4,7 +4,6 @@ import StatusMessage, { StatusType } from "./StatusMessage";
 import { sha1, sha256 } from "./crypto";
 import NoteTemplate from "./NoteTemplate";
 import { SharedUrl } from "./note";
-import { compressImage } from "./Compressor";
 
 const pluginVersion = require("../manifest.json").version;
 
@@ -137,19 +136,6 @@ export default class API {
       console.log("Retrying " + retries);
       retries--;
     }
-  }
-
-  async queueUpload(item: UploadQueueItem) {
-    // Compress the data if possible
-    if (item.data.content) {
-      const compressed = await compressImage(item.data.content as ArrayBuffer, item.data.filetype);
-      if (compressed.changed) {
-        item.data.content = compressed.data;
-        item.data.filetype = compressed.filetype;
-        item.data.hash = await sha1(compressed.data);
-      }
-    }
-    this.uploadQueue.push(item);
   }
 
   async processQueue(status: StatusMessage, type = "attachment") {

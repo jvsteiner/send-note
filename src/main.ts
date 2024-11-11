@@ -5,7 +5,6 @@ import API, { parseExistingShareUrl } from "./api";
 import StatusMessage, { StatusType } from "./StatusMessage";
 import { shortHash, sha256, decryptString } from "./crypto";
 import UI from "./UI";
-import { encryptString, sha1 } from "./crypto";
 
 export default class SendNotePlugin extends Plugin {
   settings: SendNoteSettings;
@@ -25,6 +24,7 @@ export default class SendNotePlugin extends Plugin {
     this.addSettingTab(this.settingsPage);
 
     // Initialise the backend API
+    this.ui = new UI(this.app);
 
     // To get an API key, we send the user to a Cloudflare Turnstile page to verify they are a human,
     // as a way to prevent abuse. The key is then sent back to Obsidian via this URI handler.

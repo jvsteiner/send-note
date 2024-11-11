@@ -38,7 +38,6 @@ export interface SendNoteSettings {
   shareUnencrypted: boolean;
   authRedirect: string | null;
   debug: number;
-  usePastebin: boolean;
   pastebinApiKey: string;
   pastebinUsername: string;
   pastebinPassword: string;
@@ -62,7 +61,6 @@ export const DEFAULT_SETTINGS: SendNoteSettings = {
   shareUnencrypted: false,
   authRedirect: null,
   debug: 0,
-  usePastebin: false,
   pastebinApiKey: "",
   pastebinUsername: "",
   pastebinPassword: "",
@@ -101,17 +99,6 @@ export class SendNoteSettingsTab extends PluginSettingTab {
     const { containerEl } = this;
 
     containerEl.empty();
-
-    // Use Pastebin
-    new Setting(containerEl)
-      .setName("Use Pastebin")
-      .setDesc("Use Pastebin to upload files.  Other backends to be supported in the future.")
-      .addToggle((toggle) => {
-        toggle.setValue(this.plugin.settings.usePastebin).onChange(async (value) => {
-          this.plugin.settings.usePastebin = value;
-          await this.plugin.saveSettings();
-        });
-      });
 
     // Pastebin API key
     new Setting(containerEl)
@@ -176,7 +163,7 @@ export class SendNoteSettingsTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Frontmatter property prefix")
       .setDesc(
-        "The frontmatter property for storing the shared link and updated time. A value of `share` will create frontmatter fields of `share_link` and `share_updated`. Use the is deconflict FM keys if needed."
+        "The frontmatter property for storing the shared link and updated time. A value of `share` will create frontmatter fields of `share_link` and `share_updated`. Use the is de-conflict frontmatter keys if needed."
       )
       .addText((text) =>
         text
