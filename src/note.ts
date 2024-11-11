@@ -90,11 +90,6 @@ export default class Note {
   }
 
   async share() {
-    if (!this.plugin.settings.apiKey) {
-      this.plugin.authRedirect("share").then();
-      return;
-    }
-
     // Create a semi-permanent status notice which we can update
     this.status = new StatusMessage(
       "If this message is showing, please do not change to another note as the current note data is still being parsed.",
@@ -104,10 +99,21 @@ export default class Note {
 
     if (this.plugin.settings.usePastebin) {
       let pastebinApiKey = this.plugin.settings.pastebinApiKey;
-      let pastebinUserKey = this.plugin.settings.pasteBinUserKey;
+      let pastebinUserKey = this.plugin.settings.pastebinUserKey;
+      const shareUnencrypted = this.plugin.settings.shareUnencrypted;
       let expiry = this.plugin.settings.pastebinExpiry;
-      const noteContent = await this.plugin.app.vault.read(this.file);
-      // console.log("noteContent", noteContent);
+      let plainTextNoteContent = await this.plugin.app.vault.read(this.file);
+      let noteContent = "";
+      let encryptionKey = "";
+      //encrypt note content
+      if (shareUnencrypted) {
+        // The user has opted to share unencrypted by default
+        noteContent = plainTextNoteContent;
+      } else {
+        const encryptedNoteContent = await encryptString(plainTextNoteContent);
+        noteContent = JSON.stringify(encryptedNoteContent.ciphertext);
+        encryptionKey = encryptedNoteContent.key;
+      }
       await this.plugin.app.fileManager.processFrontMatter(this.file, (frontmatter) => {
         if ((frontmatter["send_link"] = true)) {
           delete frontmatter["send_link"];
@@ -131,7 +137,12 @@ export default class Note {
           const pathSegments = urlObj.pathname.split("/");
           // The last segment will be the suffix
           const suffix = pathSegments[pathSegments.length - 1];
-          const obsidianUrl = `obsidian://send-note?sendurl=https://pastebin.com/raw/${suffix}&filename=${this.file.basename}.md`;
+          let obsidianUrl = "";
+          if (shareUnencrypted) {
+            obsidianUrl = `obsidian://send-note?sendurl=https://pastebin.com/raw/${suffix}&filename=${this.file.basename}.md`;
+          } else {
+            obsidianUrl = `obsidian://send-note?sendurl=https://pastebin.com/raw/${suffix}&filename=${this.file.basename}.md&encrypted=true&key=${encryptionKey}`;
+          }
           // console.log(obsidianUrl);
           navigator.clipboard.writeText(obsidianUrl);
           this.plugin.app.fileManager.processFrontMatter(this.file, (frontmatter) => {
@@ -139,6 +150,7 @@ export default class Note {
               frontmatter["send_link"] = obsidianUrl;
             }
           });
+          this.plugin.addShareIcons();
         })
         .catch((err) => {
           console.log("err", err);
@@ -299,11 +311,6 @@ export default class Note {
     // Note options
     this.expiration = this.getExpiration();
 
-    // Process CSS and images
-    const uploadResult = await this.processMedia();
-    this.cssResult = uploadResult.css;
-    await this.processCss();
-
     /*
      * Encrypt the note contents
      */
@@ -407,146 +414,6 @@ export default class Note {
 
     this.status.hide();
     new StatusMessage(shareMessage, StatusType.Success);
-  }
-
-  /**
-   * Upload media attachments
-   */
-  async processMedia() {
-    const elements = ["img", "video"];
-    this.status.setStatus("Processing attachments...");
-    for (const el of this.contentDom.querySelectorAll(elements.join(","))) {
-      const src = el.getAttribute("src");
-      if (!src) continue;
-
-      if (src.startsWith("http") && !src.match(/^https?:\/\/localhost/)) {
-        // This is a web asset, no need to upload
-        continue;
-      }
-
-      let content;
-      try {
-        const res = await fetch(src);
-        if (res && res.status === 200) {
-          content = await res.arrayBuffer();
-        }
-      } catch (e) {
-        // Unable to process this file
-        continue;
-      }
-
-      const parsed = new URL(src);
-      const filetype = parsed.pathname.split(".").pop();
-      if (filetype && content) {
-        const hash = await sha1(content);
-        await this.plugin.api.queueUpload({
-          data: {
-            filetype,
-            hash,
-            content,
-            byteLength: content.byteLength,
-            expiration: this.expiration,
-          },
-          callback: (url) => el.setAttribute("src", url),
-        });
-      }
-      el.removeAttribute("alt");
-    }
-    return this.plugin.api.processQueue(this.status);
-  }
-
-  /**
-   * Upload theme CSS, unless this file has previously been shared,
-   * or the user has requested a force re-upload
-   */
-  async processCss() {
-    // Upload the main CSS file only if the user has asked for it.
-    // We do it this way to ensure that the CSS the user wants on the server
-    // stays that way, until they ASK to overwrite it.
-    if (this.isForceUpload || !this.cssResult) {
-      // Extract any attachments from the CSS.
-      // Will use the mime-type whitelist to determine which attachments to extract.
-      this.status.setStatus("Processing CSS...");
-      const attachments = this.css.match(/url\s*\(.*?\)/g) || [];
-      for (const attachment of attachments) {
-        const assetMatch = attachment.match(/url\s*\(\s*"*(.*?)\s*(?<!\\)"\s*\)/);
-        if (!assetMatch) continue;
-        const assetUrl = assetMatch?.[1] || "";
-        if (assetUrl.startsWith("data:")) {
-          // Attempt to parse the data URL
-          const parsed = dataUriToBuffer(assetUrl);
-          if (parsed?.type) {
-            if (parsed.type === "application/octet-stream") {
-              // Attempt to get type from magic bytes
-              const decoded = FileTypes.getFromSignature(parsed.buffer);
-              if (!decoded) continue;
-              parsed.type = decoded.mimetype;
-            }
-            const filetype = this.extensionFromMime(parsed.type);
-            if (filetype) {
-              const hash = await sha1(parsed.buffer);
-              await this.plugin.api.queueUpload({
-                data: {
-                  filetype,
-                  hash,
-                  content: parsed.buffer,
-                  byteLength: parsed.buffer.byteLength,
-                  expiration: this.expiration,
-                },
-                callback: (url) => {
-                  this.css = this.css.replace(assetMatch[0], `url("${url}")`);
-                },
-              });
-            }
-          }
-        } else if (assetUrl && !assetUrl.startsWith("http")) {
-          // Locally stored CSS attachment
-          const filename = assetUrl.match(/([^/\\]+)\.(\w+)$/);
-          if (filename) {
-            if (cssAttachmentWhitelist[filename[2]]) {
-              // Fetch the attachment content
-              const res = await fetch(assetUrl);
-              // Reupload to the server
-              const contents = await res.arrayBuffer();
-              const hash = await sha1(contents);
-              await this.plugin.api.queueUpload({
-                data: {
-                  filetype: filename[2],
-                  hash,
-                  content: contents,
-                  byteLength: contents.byteLength,
-                  expiration: this.expiration,
-                },
-                callback: (url) => {
-                  this.css = this.css.replace(assetMatch[0], `url("${url}")`);
-                },
-              });
-            }
-          }
-        }
-      }
-      this.status.setStatus("Uploading CSS attachments...");
-      await this.plugin.api.processQueue(this.status, "CSS attachment");
-      this.status.setStatus("Uploading CSS...");
-      const minified = minify(this.css).css;
-      const cssHash = await sha1(minified);
-      try {
-        if (cssHash !== this.cssResult?.hash) {
-          await this.plugin.api.upload({
-            filetype: "css",
-            hash: cssHash,
-            content: minified,
-            byteLength: minified.length,
-            expiration: this.expiration,
-          });
-        }
-
-        // Store the CSS theme in the settings
-        // @ts-ignore
-        this.plugin.settings.theme = this.plugin.app?.customCss?.theme || ""; // customCss is not exposed
-        await this.plugin.saveSettings();
-      } catch (e) {}
-    }
   }
 
   async querySelectorAll(view: ViewModes) {

@@ -3,8 +3,9 @@ import { DEFAULT_SETTINGS, SendNoteSettings, SendNoteSettingsTab, YamlField } fr
 import Note, { SharedNote } from "./note";
 import API, { parseExistingShareUrl } from "./api";
 import StatusMessage, { StatusType } from "./StatusMessage";
-import { shortHash, sha256 } from "./crypto";
+import { shortHash, sha256, decryptString } from "./crypto";
 import UI from "./UI";
+import { encryptString, sha1 } from "./crypto";
 
 export default class SendNotePlugin extends Plugin {
   settings: SendNoteSettings;
@@ -41,46 +42,30 @@ export default class SendNotePlugin extends Plugin {
     // This way we do not require any personal data from the user like an email address.
     this.registerObsidianProtocolHandler("send-note", async (data) => {
       if (data.action === "send-note" && data.sendurl && data.filename) {
-        requestUrl(data.sendurl)
-          .then((response) => {
-            // console.log(response.text);
-            // check if file already exists
-            let newFilename = data.filename;
-            const file = this.app.vault.getAbstractFileByPath(data.filename);
-            if (file) {
-              newFilename = data.filename.replace(".md", "-" + generateRandomString() + ".md");
-            } else {
-              newFilename = data.filename;
-            }
-            const newFile = this.app.vault.create(newFilename, response.text).then((file) => {
-              this.app.workspace.openLinkText(file.path, file.path, true);
-            });
-          })
-          .catch((err) => {
-            console.log(err);
+        let response = await requestUrl(data.sendurl);
+        if (response.status === 200) {
+          // check if file already exists
+          let newFilename = data.filename;
+          let noteContent = "";
+          const file = this.app.vault.getAbstractFileByPath(data.filename);
+          if (file) {
+            newFilename = data.filename.replace(".md", "-" + generateRandomString() + ".md");
+          } else {
+            newFilename = data.filename;
+          }
+          if (data.encrypted && data.key) {
+            noteContent = await decryptString({ ciphertext: JSON.parse(response.text), key: data.key });
+          } else {
+            noteContent = JSON.parse(response.text);
+          }
+          const newFile = this.app.vault.create(newFilename, noteContent).then((file) => {
+            this.app.workspace.openLinkText(file.path, file.path, true);
           });
-        return;
-      }
-      if (data.action === "send-note" && data.key) {
-        this.settings.apiKey = data.key;
-        await this.saveSettings();
-        if (this.settingsPage.apikeyEl) {
-          // Live-update of the settings page input field
-          this.settingsPage.apikeyEl.setValue(data.key);
+        } else {
+          console.log("Error uploading file");
         }
 
-        // Check for a redirect
-        if (this.settings.authRedirect === "share") {
-          this.authRedirect(null).then();
-          this.uploadNote().then();
-        } else {
-          // Otherwise show a success message
-          new StatusMessage(
-            "Plugin successfully connected. You can now start sharing notes!",
-            StatusType.Success,
-            6000
-          );
-        }
+        return;
       }
     });
 
@@ -170,7 +155,6 @@ export default class SendNotePlugin extends Plugin {
       const meta = this.app.metadataCache.getFileCache(file);
       const note = new Note(this);
       const noteContent = await this.app.vault.read(file);
-      console.log("logging note", note);
 
       if (this.settings.shareUnencrypted) {
         // The user has opted to share unencrypted by default
@@ -231,7 +215,10 @@ export default class SendNotePlugin extends Plugin {
         "Are you sure you want to delete this shared note and the shared link? This will not delete your local note.",
         async () => {
           new StatusMessage("Deleting note...");
-          await this.api.deleteSharedNote(sharedFile.url);
+          // await this.api.deleteSharedNote(sharedFile.url);
+
+          await deletePaste(getIdentifier(sharedFile.url), this.settings.pastebinApiKey, this.settings.pastebinUserKey);
+
           await this.app.fileManager.processFrontMatter(sharedFile.file, (frontmatter) => {
             // Remove the shared link
             delete frontmatter[this.field(YamlField.link)];
@@ -336,4 +323,63 @@ function generateRandomString(length = 5) {
   }
 
   return result;
+}
+
+function getIdentifier(url: string) {
+  try {
+    // Create a URL object from the given URL string
+    const urlObj = new URL(url);
+
+    // Get the value of the 'sendurl' query parameter
+    const sendUrlParam = urlObj.searchParams.get("sendurl");
+
+    if (sendUrlParam) {
+      // Create a new URL object from the 'sendurl' parameter
+      const sendUrlObj = new URL(sendUrlParam);
+
+      // Extract the pathname from the URL
+      const pathname = sendUrlObj.pathname;
+
+      // Extract and return the identifier from the pathname
+      // Assuming the identifier is the part after the last '/' in the pathname
+      const identifier = pathname.substring(pathname.lastIndexOf("/") + 1);
+
+      return identifier;
+    } else {
+      throw new Error("sendurl parameter not found");
+    }
+  } catch (error) {
+    console.error("Invalid URL:", error);
+    return "";
+  }
+}
+
+async function deletePaste(pasteKey: string, developerKey: string, userKey: string) {
+  const url = "https://pastebin.com/api/api_post.php";
+
+  const formData = new URLSearchParams();
+  formData.append("api_dev_key", developerKey);
+  formData.append("api_user_key", userKey);
+  formData.append("api_paste_key", pasteKey);
+  formData.append("api_option", "delete");
+
+  try {
+    const response = await requestUrl({
+      url: url,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: formData.toString(),
+    });
+
+    const result = await response.text;
+
+    if (result.trim() === "Paste Removed") {
+    } else {
+      console.error("Error deleting paste:", result);
+    }
+  } catch (error) {
+    console.error("Network or parsing error:", error);
+  }
 }
