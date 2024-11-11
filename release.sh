@@ -7,6 +7,8 @@ then
     exit 1
 fi
 
+git push --tags
+
 # Hardcoded repository
 REPO="jvsteiner/send-note"  # Replace this with your actual owner/repo
 
