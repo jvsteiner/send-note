@@ -100,7 +100,7 @@ export default class Note {
     if (this.plugin.settings.usePastebin) {
       let pastebinApiKey = this.plugin.settings.pastebinApiKey;
       let pastebinUserKey = this.plugin.settings.pastebinUserKey;
-      const shareUnencrypted = this.plugin.settings.shareUnencrypted;
+      let shareUnencrypted = this.plugin.settings.shareUnencrypted;
       let expiry = this.plugin.settings.pastebinExpiry;
       let plainTextNoteContent = await this.plugin.app.vault.read(this.file);
       let noteContent = "";
@@ -120,15 +120,26 @@ export default class Note {
         }
       });
 
+      const pastebinData = {
+        api_dev_key: pastebinApiKey,
+        api_user_key: pastebinUserKey,
+        api_option: "paste",
+        api_paste_private: 1,
+        api_paste_name: this.file.basename,
+        api_paste_expire_date: expiry,
+        api_paste_format: "text",
+        api_paste_code: encodeURIComponent(noteContent),
+      };
+
+      const body = createQueryString(pastebinData);
+
       requestUrl({
         url: "https://pastebin.com/api/api_post.php",
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: `api_dev_key=${pastebinApiKey}&api_user_key=${pastebinUserKey}&api_option=paste&api_paste_private=1&api_paste_name=${
-          this.file.basename
-        }&api_paste_expire_date=${expiry}&api_paste_format=text&api_paste_code=${encodeURIComponent(noteContent)}`,
+        body: body,
       })
         .then((res) => {
           // console.log("res", res.text);
@@ -524,4 +535,17 @@ export default class Note {
       }
     }
   }
+}
+
+function createQueryString(params: Record<string, string | number | boolean | null | undefined>): string {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== null && value !== undefined) {
+      // Convert the value to string before appending
+      searchParams.append(key, String(value));
+    }
+  });
+
+  return searchParams.toString(); // This returns the query string e.g., 'key1=value1&key2=value2'
 }
