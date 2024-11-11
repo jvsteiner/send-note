@@ -20,22 +20,11 @@ export default class SendNotePlugin extends Plugin {
   async onload() {
     // Settings page
     await this.loadSettings();
-    if (!this.settings.uid) {
-      // Set up a random UID if the user does not already have one
-      this.settings.uid = await shortHash("" + Date.now() + Math.random());
-      await this.saveSettings();
-    }
-    if (this.settings.server === "https://api.obsidianshare.com") {
-      // Migrate to new server
-      this.settings.server = "https://api.note.sx";
-      await this.saveSettings();
-    }
+
     this.settingsPage = new SendNoteSettingsTab(this.app, this);
     this.addSettingTab(this.settingsPage);
 
     // Initialise the backend API
-    this.api = new API(this);
-    this.ui = new UI(this.app);
 
     // To get an API key, we send the user to a Cloudflare Turnstile page to verify they are a human,
     // as a way to prevent abuse. The key is then sent back to Obsidian via this URI handler.
@@ -217,7 +206,7 @@ export default class SendNotePlugin extends Plugin {
           new StatusMessage("Deleting note...");
           // await this.api.deleteSharedNote(sharedFile.url);
 
-          await deletePaste(getIdentifier(sharedFile.url), this.settings.pastebinApiKey, this.settings.pastebinUserKey);
+          await this.deletePaste(getIdentifier(sharedFile.url));
 
           await this.app.fileManager.processFrontMatter(sharedFile.file, (frontmatter) => {
             // Remove the shared link
@@ -308,6 +297,36 @@ export default class SendNotePlugin extends Plugin {
   field(key: YamlField) {
     return [this.settings.yamlField, YamlField[key]].join("_");
   }
+
+  async deletePaste(pasteKey: string) {
+    const url = "https://pastebin.com/api/api_post.php";
+
+    const formData = new URLSearchParams();
+    formData.append("api_dev_key", this.settings.pastebinApiKey);
+    formData.append("api_user_key", this.settings.pastebinUserKey);
+    formData.append("api_paste_key", pasteKey);
+    formData.append("api_option", "delete");
+
+    try {
+      const response = await requestUrl({
+        url: url,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: formData.toString(),
+      });
+
+      const result = await response.text;
+
+      if (result.trim() === "Paste Removed") {
+      } else {
+        console.error("Error deleting paste:", result);
+      }
+    } catch (error) {
+      console.error("Network or parsing error:", error);
+    }
+  }
 }
 
 function generateRandomString(length = 5) {
@@ -351,35 +370,5 @@ function getIdentifier(url: string) {
   } catch (error) {
     console.error("Invalid URL:", error);
     return "";
-  }
-}
-
-async function deletePaste(pasteKey: string, developerKey: string, userKey: string) {
-  const url = "https://pastebin.com/api/api_post.php";
-
-  const formData = new URLSearchParams();
-  formData.append("api_dev_key", developerKey);
-  formData.append("api_user_key", userKey);
-  formData.append("api_paste_key", pasteKey);
-  formData.append("api_option", "delete");
-
-  try {
-    const response = await requestUrl({
-      url: url,
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: formData.toString(),
-    });
-
-    const result = await response.text;
-
-    if (result.trim() === "Paste Removed") {
-    } else {
-      console.error("Error deleting paste:", result);
-    }
-  } catch (error) {
-    console.error("Network or parsing error:", error);
   }
 }
