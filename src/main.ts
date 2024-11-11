@@ -56,7 +56,7 @@ export default class SendNotePlugin extends Plugin {
           if (data.encrypted && data.key) {
             noteContent = await decryptString({ ciphertext: JSON.parse(response.text), key: data.key });
           } else {
-            noteContent = response.text;
+            noteContent = decodeURIComponent(response.text);
           }
           const newFile = this.app.vault.create(newFilename, noteContent).then((file) => {
             this.app.workspace.openLinkText(file.path, file.path, true);
