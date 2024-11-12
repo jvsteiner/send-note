@@ -22,6 +22,14 @@ The content of your note is encrypted by default. What this means is that you ca
 
 See here: [Troubleshooting](https://docs.note.sx/Troubleshooting)
 
+## Acknowledgements
+
+This plugin is based on the [share-note](https://github.com/alangrainger/share-note) plugin by [@alangrainger](https://github.com/alangrainger/). Ok, "based" is a bit of a stretch, I did used a all of the code from that plugin, and I deleted more stuff than I added. This plugin serves a very different purpose, but the UI he created was just perfect, so I used it as a starting point.
+
+## License
+
+MIT License
+
 ## TODO
 
 1. I might want to delete previous copies automatically, when you reshare a note. Currently, it will just create a new note, and the old note will still be available, although the url gets replaced in the frontmatter.
