@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting, TextComponent, requestUrl } from "obsidian";
 import SendNotePlugin from "./main";
+import StatusMessage, { StatusType } from "./StatusMessage";
 
 export enum ThemeMode {
   "Same as theme",
@@ -55,6 +56,7 @@ export const DEFAULT_SETTINGS: SendNoteSettings = {
 export class SendNoteSettingsTab extends PluginSettingTab {
   plugin: SendNotePlugin;
   apikeyEl: TextComponent;
+  status: StatusMessage;
 
   constructor(app: App, plugin: SendNotePlugin) {
     super(app, plugin);
@@ -67,7 +69,7 @@ export class SendNoteSettingsTab extends PluginSettingTab {
       this.plugin.settings.pastebinUsername &&
       this.plugin.settings.pastebinPassword
     ) {
-      getUserKey(
+      this.getUserKey(
         this.plugin.settings.pastebinApiKey,
         this.plugin.settings.pastebinUsername,
         this.plugin.settings.pastebinPassword
@@ -210,8 +212,34 @@ export class SendNoteSettingsTab extends PluginSettingTab {
           await this.plugin.saveSettings();
           this.display();
         });
-      })
-      .then((setting) => addDocs(setting, "https://docs.note.sx/notes/encryption"));
+      });
+    // .then((setting) => addDocs(setting, "https://docs.note.sx/notes/encryption"));
+  }
+
+  private async getUserKey(apiKey: string, username: string, password: string): Promise<string> {
+    const url = "https://pastebin.com/api/api_login.php";
+    const params = new URLSearchParams();
+    params.append("api_dev_key", apiKey);
+    params.append("api_user_name", username);
+    params.append("api_user_password", password);
+
+    const response = await requestUrl({
+      url: url,
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    });
+
+    if (response.status === 200) {
+      return response.text;
+    } else {
+      this.status = new StatusMessage(
+        "Failed to get user key. Please check your Pastebin API key, username and password.",
+        StatusType.Error,
+        5 * 1000
+      );
+      throw new Error("Failed to get user key");
+    }
   }
 }
 
@@ -221,30 +249,4 @@ function addDocs(setting: Setting, url: string) {
     text: "View the documentation",
     href: url,
   });
-}
-
-async function getUserKey(apiKey: string, username: string, password: string): Promise<string> {
-  const url = "https://pastebin.com/api/api_login.php";
-  const params = new URLSearchParams();
-  params.append("api_dev_key", apiKey);
-  params.append("api_user_name", username);
-  params.append("api_user_password", password);
-
-  const response = await requestUrl({
-    url: url,
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: params.toString(),
-  });
-
-  // await fetch(url, {
-  //   method: "POST",
-  //   headers: { "Content-Type": "application/x-www-form-urlencoded" },
-  //   body: params.toString(),
-  // });
-  if (response.status === 200) {
-    return response.text;
-  } else {
-    throw new Error("Failed to get user key");
-  }
 }

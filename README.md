@@ -24,7 +24,7 @@ See here: [Troubleshooting](https://docs.note.sx/Troubleshooting)
 
 ## Acknowledgements
 
-This plugin is based on the [share-note](https://github.com/alangrainger/share-note) plugin by [@alangrainger](https://github.com/alangrainger/). Ok, "based" is a bit of a stretch, I did used a all of the code from that plugin, and I deleted more stuff than I added. This plugin serves a very different purpose, but the UI he created was just perfect, so I used it as a starting point.
+This plugin is based on the [share-note](https://github.com/alangrainger/share-note) plugin by [@alangrainger](https://github.com/alangrainger/). Ok, "based" is a bit of a stretch, I used all of the code from that plugin, added just the pastebin backend, and I deleted more stuff than I added. This plugin serves a very different purpose, but the UI he created was just perfect, so I used it as a starting point.
 
 ## License
 
