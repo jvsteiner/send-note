@@ -43,7 +43,10 @@ export default class SendNotePlugin extends Plugin {
             newFilename = data.filename;
           }
           if (data.encrypted && data.key) {
-            noteContent = await decryptString({ ciphertext: JSON.parse(response.text), key: data.key });
+            noteContent = await decryptString({
+              ciphertext: JSON.parse(decodeURIComponent(response.text)),
+              key: data.key,
+            });
           } else {
             noteContent = decodeURIComponent(response.text);
           }

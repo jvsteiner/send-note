@@ -85,7 +85,7 @@ export default class Note {
       noteContent = plainTextNoteContent;
     } else {
       const encryptedNoteContent = await encryptString(plainTextNoteContent);
-      noteContent = JSON.stringify(encryptedNoteContent.ciphertext.join(""));
+      noteContent = JSON.stringify(encryptedNoteContent.ciphertext);
       encryptionKey = encryptedNoteContent.key;
     }
     await this.plugin.app.fileManager.processFrontMatter(this.file, (frontmatter) => {
