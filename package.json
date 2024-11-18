@@ -1,36 +1,36 @@
 {
-	"name": "share-note",
-	"version": "0.8.30",
-	"description": "Instantly share a note, with the full theme and content exactly like you see in Reading View. Data is shared encrypted by default, and only you and the person you send it to have the key.",
-	"main": "main.js",
-	"scripts": {
-		"dev": "node esbuild.config.mjs",
-		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-		"version": "node version-bump.mjs && git add manifest.json versions.json"
-	},
-	"keywords": [],
-	"author": "Alan Grainger",
-	"license": "MIT",
-	"devDependencies": {
-		"@types/csso": "^5.0.2",
-		"@types/node": "^16.11.6",
-		"@typescript-eslint/eslint-plugin": "5.29.0",
-		"@typescript-eslint/parser": "5.29.0",
-		"browser-image-compression": "^2.0.2",
-		"builtin-modules": "3.3.0",
-		"esbuild": "0.17.3",
-		"eslint": "^8.49.0",
-		"eslint-config-standard": "^17.1.0",
-		"obsidian": "latest",
-		"tslib": "2.4.0",
-		"typescript": "4.7.4"
-	},
-	"dependencies": {
-		"@aws-sdk/client-s3": "^3.693.0",
-		"@aws-sdk/protocol-http": "^3.370.0",
-		"@aws-sdk/querystring-builder": "^3.370.0",
-		"@smithy/fetch-http-handler": "^4.1.1",
-		"csso": "^5.0.5",
-		"data-uri-to-buffer": "^6.0.1"
-	}
+  "name": "send-note",
+  "version": "0.8.30",
+  "description": "Instantly send a note, to other obsidian users so they can import them into their vault. It uses AWS S3 as a storage backend. Data is shared encrypted by default, and only you and the person you send it to have the key.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
+  },
+  "keywords": [],
+  "author": "Jamie Steiner",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/csso": "^5.0.2",
+    "@types/node": "^16.11.6",
+    "@typescript-eslint/eslint-plugin": "5.29.0",
+    "@typescript-eslint/parser": "5.29.0",
+    "browser-image-compression": "^2.0.2",
+    "builtin-modules": "3.3.0",
+    "esbuild": "0.17.3",
+    "eslint": "^8.49.0",
+    "eslint-config-standard": "^17.1.0",
+    "obsidian": "latest",
+    "tslib": "2.4.0",
+    "typescript": "4.7.4"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.693.0",
+    "@aws-sdk/protocol-http": "^3.370.0",
+    "@aws-sdk/querystring-builder": "^3.370.0",
+    "@smithy/fetch-http-handler": "^4.1.1",
+    "csso": "^5.0.5",
+    "data-uri-to-buffer": "^6.0.1"
+  }
 }
