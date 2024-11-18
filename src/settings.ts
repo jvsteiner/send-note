@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, TextComponent, requestUrl } from "obsidian";
+import { App, PluginSettingTab, Setting, TextComponent, requestUrl, setIcon } from "obsidian";
 import SendNotePlugin from "./main";
 import StatusMessage, { StatusType } from "./StatusMessage";
 
@@ -30,12 +30,21 @@ export interface SendNoteSettings {
   clipboard: boolean;
   shareUnencrypted: boolean;
   debug: number;
-  pastebinApiKey: string;
-  pastebinUsername: string;
-  pastebinPassword: string;
-  pastebinUserKey: string;
-  pastebinPublic: string;
-  pastebinExpiry: string;
+  accessKey: string;
+  secretKey: string;
+  region: string;
+  bucket: string;
+  folder: string;
+  expiry: string;
+  imageUrlPath: string;
+  useCustomEndpoint: boolean;
+  customEndpoint: string;
+  forcePathStyle: boolean;
+  useCustomImageUrl: boolean;
+  customImageUrl: string;
+  bypassCors: boolean;
+  queryStringValue: string;
+  queryStringKey: string;
 }
 
 export const DEFAULT_SETTINGS: SendNoteSettings = {
@@ -45,12 +54,21 @@ export const DEFAULT_SETTINGS: SendNoteSettings = {
   clipboard: true,
   shareUnencrypted: false,
   debug: 0,
-  pastebinApiKey: "",
-  pastebinUsername: "",
-  pastebinPassword: "",
-  pastebinUserKey: "",
-  pastebinPublic: "1",
-  pastebinExpiry: "1D",
+  accessKey: "",
+  secretKey: "",
+  region: "eu-west-2",
+  bucket: "",
+  folder: "",
+  expiry: "24",
+  imageUrlPath: "",
+  useCustomEndpoint: false,
+  customEndpoint: "",
+  forcePathStyle: false,
+  useCustomImageUrl: false,
+  customImageUrl: "",
+  bypassCors: false,
+  queryStringValue: "",
+  queryStringKey: "",
 };
 
 export class SendNoteSettingsTab extends PluginSettingTab {
@@ -63,101 +81,174 @@ export class SendNoteSettingsTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
-  setUserKey(): void {
-    if (
-      this.plugin.settings.pastebinApiKey &&
-      this.plugin.settings.pastebinUsername &&
-      this.plugin.settings.pastebinPassword
-    ) {
-      this.getUserKey(
-        this.plugin.settings.pastebinApiKey,
-        this.plugin.settings.pastebinUsername,
-        this.plugin.settings.pastebinPassword
-      ).then((key) => {
-        this.plugin.settings.pastebinUserKey = key;
-        this.plugin.saveSettings();
-        console.log("Set user key", key);
-      });
-    }
-  }
-
   display(): void {
     const { containerEl } = this;
 
     containerEl.empty();
 
-    // Pastebin API key
     new Setting(containerEl)
-      .setName("Pastebin API key")
-      .setDesc("Pastebin API key")
-      .addText((inputEl) => {
-        inputEl
-          .setPlaceholder("Pastebin API key")
-          .setValue(this.plugin.settings.pastebinApiKey)
+      .setName("AWS Access Key ID")
+      .setDesc("AWS access key ID for a user with S3 access.")
+      .addText((text) => {
+        wrapTextWithPasswordHide(text);
+        text
+          .setPlaceholder("access key")
+          .setValue(this.plugin.settings.accessKey)
           .onChange(async (value) => {
-            this.plugin.settings.pastebinApiKey = value;
-            await this.plugin.saveSettings();
-            this.setUserKey();
-          });
-      });
-
-    // Pastebin username
-    new Setting(containerEl)
-      .setName("Pastebin username")
-      .setDesc("Pastebin username")
-      .addText((inputEl) => {
-        inputEl
-          .setPlaceholder("Pastebin username")
-          .setValue(this.plugin.settings.pastebinUsername)
-          .onChange(async (value) => {
-            this.plugin.settings.pastebinUsername = value;
-            await this.plugin.saveSettings();
-            this.setUserKey();
-          });
-      });
-
-    // Pastebin password
-    new Setting(containerEl)
-      .setName("Pastebin password")
-      .setDesc("Pastebin password")
-      .addText((inputEl) => {
-        inputEl
-          .setPlaceholder("Pastebin password")
-          .setValue(this.plugin.settings.pastebinPassword)
-          .onChange(async (value) => {
-            this.plugin.settings.pastebinPassword = value;
-            await this.plugin.saveSettings();
-            this.setUserKey();
-          });
-      });
-
-    // Pastebin expiry period
-    new Setting(containerEl)
-      .setName("Pastebin expiry")
-      .setDesc("Pastebin expiry period, ie.: N, 1D, 1W, 1M, 1Y")
-      .addText((inputEl) => {
-        inputEl
-          .setPlaceholder("Pastebin expiry period")
-          .setValue(this.plugin.settings.pastebinExpiry)
-          .onChange(async (value) => {
-            this.plugin.settings.pastebinExpiry = value;
+            this.plugin.settings.accessKey = value.trim();
             await this.plugin.saveSettings();
           });
       });
 
-    // Pastebin public setting
     new Setting(containerEl)
-      .setName("Pastebin public setting")
-      .setDesc("Pastebin public: 0 for public, 1 for unlisted, 2 for private. Default is 1")
-      .addText((inputEl) => {
-        inputEl
-          .setPlaceholder("Pastebinpublic setting")
-          .setValue(this.plugin.settings.pastebinPublic)
+      .setName("AWS Secret Key")
+      .setDesc("AWS secret key for that user.")
+      .addText((text) => {
+        wrapTextWithPasswordHide(text);
+        text
+          .setPlaceholder("secret key")
+          .setValue(this.plugin.settings.secretKey)
           .onChange(async (value) => {
-            this.plugin.settings.pastebinPublic = value;
+            this.plugin.settings.secretKey = value.trim();
             await this.plugin.saveSettings();
           });
       });
+
+    new Setting(containerEl)
+      .setName("Region")
+      .setDesc("AWS region of the S3 bucket.")
+      .addText((text) =>
+        text
+          .setPlaceholder("aws region")
+          .setValue(this.plugin.settings.region)
+          .onChange(async (value) => {
+            this.plugin.settings.region = value.trim();
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("S3 Bucket")
+      .setDesc("S3 bucket name.")
+      .addText((text) =>
+        text
+          .setPlaceholder("bucket name")
+          .setValue(this.plugin.settings.bucket)
+          .onChange(async (value) => {
+            this.plugin.settings.bucket = value.trim();
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Bucket folder")
+      .setDesc("Optional folder in s3 bucket. Support the use of ${year}, ${month}, and ${day} variables.")
+      .addText((text) =>
+        text
+          .setPlaceholder("folder")
+          .setValue(this.plugin.settings.folder)
+          .onChange(async (value) => {
+            this.plugin.settings.folder = value.trim();
+            await this.plugin.saveSettings();
+          })
+      );
+    new Setting(containerEl)
+      .setName("Use custom endpoint")
+      .setDesc("Use the custom api endpoint below.")
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.useCustomEndpoint).onChange(async (value) => {
+          this.plugin.settings.useCustomEndpoint = value;
+          await this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName("Custom S3 Endpoint")
+      .setDesc("Optionally set a custom endpoint for any S3 compatible storage provider.")
+      .addText((text) =>
+        text
+          .setPlaceholder("https://s3.myhost.com/")
+          .setValue(this.plugin.settings.customEndpoint)
+          .onChange(async (value) => {
+            value = value.match(/https?:\/\//) // Force to start http(s)://
+              ? value
+              : "https://" + value;
+            value = value.replace(/([^\/])$/, "$1/"); // Force to end with slash
+            this.plugin.settings.customEndpoint = value.trim();
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("S3 Path Style URLs")
+      .setDesc(
+        "Advanced option to force using (legacy) path-style s3 URLs (s3.myhost.com/bucket) instead of the modern AWS standard host-style (bucket.s3.myhost.com)."
+      )
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.forcePathStyle).onChange(async (value) => {
+          this.plugin.settings.forcePathStyle = value;
+          await this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName("Use custom image URL")
+      .setDesc("Use the custom image URL below.")
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.useCustomImageUrl).onChange(async (value) => {
+          this.plugin.settings.useCustomImageUrl = value;
+          await this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName("Custom Image URL")
+      .setDesc("Advanced option to force inserting custom image URLs. This option is helpful if you are using CDN.")
+      .addText((text) =>
+        text.setValue(this.plugin.settings.customImageUrl).onChange(async (value) => {
+          value = value.match(/https?:\/\//) // Force to start http(s)://
+            ? value
+            : "https://" + value;
+          value = value.replace(/([^\/])$/, "$1/"); // Force to end with slash
+          this.plugin.settings.customImageUrl = value.trim();
+          await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(containerEl)
+      .setName("Bypass local CORS check")
+      .setDesc("Bypass local CORS preflight checks - it might work on later versions of Obsidian.")
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.bypassCors).onChange(async (value) => {
+          this.plugin.settings.bypassCors = value;
+          await this.plugin.saveSettings();
+        });
+      });
+    new Setting(containerEl)
+      .setName("Query String Key")
+      .setDesc("Appended to the end of the URL. Optional")
+      .addText((text) =>
+        text
+          .setPlaceholder("Empty means no query string key")
+          .setValue(this.plugin.settings.queryStringKey)
+          .onChange(async (value) => {
+            this.plugin.settings.queryStringKey = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Query String Value")
+      .setDesc("Appended to the end of the URL. Optional")
+      .addText((text) =>
+        text
+          .setPlaceholder("Empty means no query string value")
+          .setValue(this.plugin.settings.queryStringValue)
+          .onChange(async (value) => {
+            this.plugin.settings.queryStringValue = value;
+            await this.plugin.saveSettings();
+          })
+      );
 
     // Local YAML field
     new Setting(containerEl)
@@ -215,32 +306,6 @@ export class SendNoteSettingsTab extends PluginSettingTab {
       });
     // .then((setting) => addDocs(setting, "https://docs.note.sx/notes/encryption"));
   }
-
-  private async getUserKey(apiKey: string, username: string, password: string): Promise<string> {
-    const url = "https://pastebin.com/api/api_login.php";
-    const params = new URLSearchParams();
-    params.append("api_dev_key", apiKey);
-    params.append("api_user_name", username);
-    params.append("api_user_password", password);
-
-    const response = await requestUrl({
-      url: url,
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: params.toString(),
-    });
-
-    if (response.status === 200) {
-      return response.text;
-    } else {
-      this.status = new StatusMessage(
-        "Failed to get user key. Please check your Pastebin API key, username and password.",
-        StatusType.Error,
-        5 * 1000
-      );
-      throw new Error("Failed to get user key");
-    }
-  }
 }
 
 function addDocs(setting: Setting, url: string) {
@@ -250,3 +315,25 @@ function addDocs(setting: Setting, url: string) {
     href: url,
   });
 }
+
+const wrapTextWithPasswordHide = (text: TextComponent) => {
+  const hider = text.inputEl.insertAdjacentElement("beforebegin", createSpan());
+  if (!hider) {
+    return;
+  }
+  setIcon(hider as HTMLElement, "eye-off");
+
+  hider.addEventListener("click", () => {
+    const isText = text.inputEl.getAttribute("type") === "text";
+    if (isText) {
+      setIcon(hider as HTMLElement, "eye-off");
+      text.inputEl.setAttribute("type", "password");
+    } else {
+      setIcon(hider as HTMLElement, "eye");
+      text.inputEl.setAttribute("type", "text");
+    }
+    text.inputEl.focus();
+  });
+  text.inputEl.setAttribute("type", "password");
+  return text;
+};

@@ -1,16 +1,24 @@
-import { Plugin, requestUrl, setIcon, TFile } from "obsidian";
+import { Plugin, requestUrl, setIcon, TFile, RequestUrlParam } from "obsidian";
 import { DEFAULT_SETTINGS, SendNoteSettings, SendNoteSettingsTab, YamlField } from "./settings";
 import Note, { SharedNote } from "./note";
 import API, { parseExistingShareUrl } from "./api";
 import StatusMessage, { StatusType } from "./StatusMessage";
 import { shortHash, sha256, decryptString } from "./crypto";
 import UI from "./UI";
+import { S3Client, PutObjectCommand, DeleteObjectsCommand } from "@aws-sdk/client-s3";
+import { HttpHandlerOptions } from "@aws-sdk/types";
+import { buildQueryString } from "@aws-sdk/querystring-builder";
+import { requestTimeout } from "@smithy/fetch-http-handler/dist-es/request-timeout";
+import { FetchHttpHandler, FetchHttpHandlerOptions } from "@smithy/fetch-http-handler";
+import { HttpRequest, HttpResponse } from "@aws-sdk/protocol-http";
+import * as crypto from "crypto";
 
 export default class SendNotePlugin extends Plugin {
   settings: SendNoteSettings;
   api: API;
   settingsPage: SendNoteSettingsTab;
   ui: UI;
+  s3: S3Client;
 
   // Expose some tools in the plugin object
   hash = shortHash;
@@ -23,8 +31,28 @@ export default class SendNotePlugin extends Plugin {
     this.settingsPage = new SendNoteSettingsTab(this.app, this);
     this.addSettingTab(this.settingsPage);
 
+    let apiEndpoint = this.settings.useCustomEndpoint
+      ? this.settings.customEndpoint
+      : `https://s3.${this.settings.region}.amazonaws.com/`;
+    this.settings.imageUrlPath = this.settings.useCustomImageUrl
+      ? this.settings.customImageUrl
+      : this.settings.forcePathStyle
+      ? apiEndpoint + this.settings.bucket + "/"
+      : apiEndpoint.replace("://", `://${this.settings.bucket}.`);
+
     // Initialise the backend API
     this.ui = new UI(this.app);
+    this.s3 = new S3Client({
+      region: this.settings.region,
+      credentials: {
+        // clientConfig: { region: this.settings.region },
+        accessKeyId: this.settings.accessKey,
+        secretAccessKey: this.settings.secretKey,
+      },
+      endpoint: apiEndpoint,
+      // forcePathStyle: this.settings.forcePathStyle,
+      requestHandler: new ObsHttpHandler({ keepAlive: false }),
+    });
 
     // To get an API key, we send the user to a Cloudflare Turnstile page to verify they are a human,
     // as a way to prevent abuse. The key is then sent back to Obsidian via this URI handler.
@@ -124,6 +152,43 @@ export default class SendNotePlugin extends Plugin {
         this.addShareIcons();
       })
     );
+  }
+
+  async uploadFile(content: string, key: string): Promise<string> {
+    // const buf = await file.arrayBuffer();
+
+    let folder = this.settings.folder;
+
+    const currentDate = new Date();
+    folder = folder
+      .replace("${year}", currentDate.getFullYear().toString())
+      .replace("${month}", String(currentDate.getMonth() + 1).padStart(2, "0"))
+      .replace("${day}", String(currentDate.getDate()).padStart(2, "0"));
+
+    const keyHash = md5Hash(key);
+
+    key = folder ? `${folder}/${keyHash}` : keyHash;
+
+    const encoder = new TextEncoder();
+    const utf8Array = encoder.encode(content);
+
+    await this.s3.send(
+      new PutObjectCommand({
+        Bucket: this.settings.bucket,
+        Key: key,
+        Body: utf8Array,
+        ContentType: "text/plain",
+      })
+    );
+    let urlString = this.settings.imageUrlPath + key;
+    if (this.settings.queryStringKey && this.settings.queryStringValue) {
+      let urlObject = new URL(urlString);
+
+      // The searchParams property provides methods to manipulate query parameters
+      urlObject.searchParams.append(this.settings.queryStringKey, this.settings.queryStringValue);
+      urlString = urlObject.toString();
+    }
+    return urlString;
   }
 
   onunload() {}
@@ -292,33 +357,52 @@ export default class SendNotePlugin extends Plugin {
   }
 
   async deletePaste(pasteKey: string) {
-    const url = "https://pastebin.com/api/api_post.php";
-
-    const formData = new URLSearchParams();
-    formData.append("api_dev_key", this.settings.pastebinApiKey);
-    formData.append("api_user_key", this.settings.pastebinUserKey);
-    formData.append("api_paste_key", pasteKey);
-    formData.append("api_option", "delete");
-
-    try {
-      const response = await requestUrl({
-        url: url,
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: formData.toString(),
+    this.s3
+      .send(
+        new DeleteObjectsCommand({
+          Bucket: this.settings.bucket,
+          Delete: {
+            Objects: [
+              {
+                Key: pasteKey,
+              },
+            ],
+          },
+        })
+      )
+      .then((data) => {
+        console.log("data", data);
+      })
+      .catch((err) => {
+        console.log("error", err);
       });
+    // const url = "https://pastebin.com/api/api_post.php";
 
-      const result = await response.text;
+    // const formData = new URLSearchParams();
+    // // formData.append("api_dev_key", this.settings.pastebinApiKey);
+    // // formData.append("api_user_key", this.settings.pastebinUserKey);
+    // formData.append("api_paste_key", pasteKey);
+    // formData.append("api_option", "delete");
 
-      if (result.trim() === "Paste Removed") {
-      } else {
-        console.error("Error deleting paste:", result);
-      }
-    } catch (error) {
-      console.error("Network or parsing error:", error);
-    }
+    // try {
+    //   const response = await requestUrl({
+    //     url: url,
+    //     method: "POST",
+    //     headers: {
+    //       "Content-Type": "application/x-www-form-urlencoded",
+    //     },
+    //     body: formData.toString(),
+    //   });
+
+    //   const result = await response.text;
+
+    //   if (result.trim() === "Paste Removed") {
+    //   } else {
+    //     console.error("Error deleting paste:", result);
+    //   }
+    // } catch (error) {
+    //   console.error("Network or parsing error:", error);
+    // }
   }
 
   private generateRandomString(length = 5) {
@@ -349,13 +433,13 @@ export default class SendNotePlugin extends Plugin {
         const sendUrlObj = new URL(sendUrlParam);
 
         // Extract the pathname from the URL
-        const pathname = sendUrlObj.pathname;
+        // const pathname = sendUrlObj.pathname;
 
         // Extract and return the identifier from the pathname
         // Assuming the identifier is the part after the last '/' in the pathname
-        const identifier = pathname.substring(pathname.lastIndexOf("/") + 1);
+        // const identifier = pathname.substring(pathname.lastIndexOf("/") + 1);
 
-        return identifier;
+        return sendUrlObj.pathname.slice(1);
       } else {
         throw new Error("sendurl parameter not found");
       }
@@ -364,4 +448,109 @@ export default class SendNotePlugin extends Plugin {
       return "";
     }
   }
+}
+
+/**
+ * This is close to origin implementation of FetchHttpHandler
+ * https://github.com/aws/aws-sdk-js-v3/blob/main/packages/fetch-http-handler/src/fetch-http-handler.ts
+ * that is released under Apache 2 License.
+ * But this uses Obsidian requestUrl instead.
+ */
+class ObsHttpHandler extends FetchHttpHandler {
+  requestTimeoutInMs: number | undefined;
+  constructor(options?: FetchHttpHandlerOptions) {
+    super(options);
+    this.requestTimeoutInMs = options === undefined ? undefined : options.requestTimeout;
+  }
+  async handle(request: HttpRequest, { abortSignal }: HttpHandlerOptions = {}): Promise<{ response: HttpResponse }> {
+    if (abortSignal?.aborted) {
+      const abortError = new Error("Request aborted");
+      abortError.name = "AbortError";
+      return Promise.reject(abortError);
+    }
+
+    let path = request.path;
+    if (request.query) {
+      const queryString = buildQueryString(request.query);
+      if (queryString) {
+        path += `?${queryString}`;
+      }
+    }
+
+    const { port, method } = request;
+    const url = `${request.protocol}//${request.hostname}${port ? `:${port}` : ""}${path}`;
+    const body = method === "GET" || method === "HEAD" ? undefined : request.body;
+
+    const transformedHeaders: Record<string, string> = {};
+    for (const key of Object.keys(request.headers)) {
+      const keyLower = key.toLowerCase();
+      if (keyLower === "host" || keyLower === "content-length") {
+        continue;
+      }
+      transformedHeaders[keyLower] = request.headers[key];
+    }
+
+    let contentType: string | undefined = undefined;
+    if (transformedHeaders["content-type"] !== undefined) {
+      contentType = transformedHeaders["content-type"];
+    }
+
+    let transformedBody: any = body;
+    if (ArrayBuffer.isView(body)) {
+      transformedBody = bufferToArrayBuffer(body);
+    }
+
+    const param: RequestUrlParam = {
+      body: transformedBody,
+      headers: transformedHeaders,
+      method: method,
+      url: url,
+      contentType: contentType,
+    };
+
+    const raceOfPromises = [
+      requestUrl(param).then((rsp) => {
+        const headers = rsp.headers;
+        const headersLower: Record<string, string> = {};
+        for (const key of Object.keys(headers)) {
+          headersLower[key.toLowerCase()] = headers[key];
+        }
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new Uint8Array(rsp.arrayBuffer));
+            controller.close();
+          },
+        });
+        return {
+          response: new HttpResponse({
+            headers: headersLower,
+            statusCode: rsp.status,
+            body: stream,
+          }),
+        };
+      }),
+      requestTimeout(this.requestTimeoutInMs),
+    ];
+
+    if (abortSignal) {
+      raceOfPromises.push(
+        new Promise<never>((resolve, reject) => {
+          abortSignal.onabort = () => {
+            const abortError = new Error("Request aborted");
+            abortError.name = "AbortError";
+            reject(abortError);
+          };
+        })
+      );
+    }
+    return Promise.race(raceOfPromises);
+  }
+}
+
+const bufferToArrayBuffer = (b: Buffer | Uint8Array | ArrayBufferView) => {
+  return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
+};
+
+function md5Hash(text: string): string {
+  return crypto.createHash("md5").update(text, "utf8").digest("hex");
 }
