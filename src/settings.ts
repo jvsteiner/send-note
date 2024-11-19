@@ -225,7 +225,7 @@ export class SendNoteSettingsTab extends PluginSettingTab {
         });
       });
     new Setting(containerEl)
-      .setName("Query String Key")
+      .setName("Query string key")
       .setDesc("Appended to the end of the URL. Optional")
       .addText((text) =>
         text
@@ -238,7 +238,7 @@ export class SendNoteSettingsTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Query String Value")
+      .setName("Query string value")
       .setDesc("Appended to the end of the URL. Optional")
       .addText((text) =>
         text
@@ -266,7 +266,7 @@ export class SendNoteSettingsTab extends PluginSettingTab {
           })
       );
 
-    new Setting(containerEl).setName("Upload options").setHeading();
+    new Setting(containerEl).setName("Uploads").setHeading();
 
     // Copy to clipboard
     new Setting(containerEl).setName("Copy the link to clipboard after sharing").addToggle((toggle) => {
@@ -277,7 +277,7 @@ export class SendNoteSettingsTab extends PluginSettingTab {
       });
     });
 
-    new Setting(containerEl).setName("Note options").setHeading();
+    new Setting(containerEl).setName("Notes").setHeading();
 
     // Strip frontmatter
     new Setting(containerEl)

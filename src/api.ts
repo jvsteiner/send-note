@@ -5,8 +5,6 @@ import { sha1, sha256 } from "./crypto";
 import NoteTemplate from "./NoteTemplate";
 import { SharedUrl } from "./note";
 
-const pluginVersion = require("../manifest.json").version;
-
 export interface FileUpload {
   filetype: string;
   hash: string;
