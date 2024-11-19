@@ -94,22 +94,9 @@ export default class Note {
       }
     });
 
-    // const pastebinData = {
-    //   api_dev_key: this.plugin.settings.pastebinApiKey,
-    //   api_user_key: this.plugin.settings.pastebinUserKey,
-    //   api_option: "paste",
-    //   api_paste_private: 1,
-    //   api_paste_name: this.file.basename,
-    //   api_paste_expire_date: this.plugin.settings.pastebinExpiry,
-    //   api_paste_format: "text",
-    //   api_paste_code: encodeURIComponent(noteContent),
-    // };
-
-    // const body = this.createQueryString(pastebinData);
     this.plugin
       .uploadFile(noteContent, this.file.basename)
       .then((res) => {
-        console.log(res);
         const responseText = res.trim();
         if (!responseText.startsWith("http")) {
           throw new Error("Invalid URL response from AWS");
@@ -123,7 +110,6 @@ export default class Note {
         } else {
           obsidianUrl = `obsidian://send-note?sendurl=${responseText}&filename=${this.file.basename}.md&encrypted=true&key=${encryptionKey}`;
         }
-        // console.log(obsidianUrl);
         navigator.clipboard.writeText(obsidianUrl);
         this.plugin.app.fileManager.processFrontMatter(this.file, (frontmatter) => {
           if ((frontmatter["send_link"] = true)) {
@@ -135,47 +121,6 @@ export default class Note {
       .catch((err) => {
         console.error(err);
       });
-
-    // requestUrl({
-    //   url: "https://pastebin.com/api/api_post.php",
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/x-www-form-urlencoded",
-    //   },
-    //   body: body,
-    // })
-    //   .then((res) => {
-    //     const responseText = res.text.trim();
-    //     if (!responseText.startsWith("http")) {
-    //       throw new Error("Invalid URL response from Pastebin");
-    //     }
-    //     const urlObj = new URL(responseText);
-    //     const pathSegments = urlObj.pathname.split("/");
-    //     const suffix = pathSegments[pathSegments.length - 1];
-    //     let obsidianUrl = "";
-    //     if (shareUnencrypted) {
-    //       obsidianUrl = `obsidian://send-note?sendurl=https://pastebin.com/raw/${suffix}&filename=${this.file.basename}.md`;
-    //     } else {
-    //       obsidianUrl = `obsidian://send-note?sendurl=https://pastebin.com/raw/${suffix}&filename=${this.file.basename}.md&encrypted=true&key=${encryptionKey}`;
-    //     }
-    //     // console.log(obsidianUrl);
-    //     navigator.clipboard.writeText(obsidianUrl);
-    //     this.plugin.app.fileManager.processFrontMatter(this.file, (frontmatter) => {
-    //       if ((frontmatter["send_link"] = true)) {
-    //         frontmatter["send_link"] = obsidianUrl;
-    //       }
-    //     });
-    //     this.plugin.addShareIcons();
-    //   })
-    //   .catch((err) => {
-    //     console.log("err", err);
-    //     this.status = new StatusMessage(
-    //       err +
-    //         ". The note uploading failed.  If you got status 422, it might be because you have exceeded your allowed number of pastes for 24 hours.",
-    //       StatusType.Error,
-    //       5 * 1000
-    //     );
-    //   });
     return;
   }
 

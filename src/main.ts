@@ -256,7 +256,7 @@ export default class SendNotePlugin extends Plugin {
     if (shareLink) {
       // The note is already shared, copy the link to the clipboard
       await navigator.clipboard.writeText(shareLink);
-      new StatusMessage("📋 Shared link copied to clipboard");
+      new StatusMessage("📋 Shared link copied to clipboard", StatusType.Default, 2000);
     } else {
       // The note is not already shared, share it first and copy the link to the clipboard
       await this.uploadNote(false, true);
@@ -271,7 +271,7 @@ export default class SendNotePlugin extends Plugin {
         "Delete shared note?",
         "Are you sure you want to delete this shared note and the shared link? This will not delete your local note.",
         async () => {
-          new StatusMessage("Deleting note...");
+          new StatusMessage("Deleting note...", StatusType.Default, 2000);
           // await this.api.deleteSharedNote(sharedFile.url);
 
           await this.deletePaste(this.getIdentifier(sharedFile.url));
@@ -322,7 +322,7 @@ export default class SendNotePlugin extends Plugin {
             setIcon(copyIcon, "copy");
             copyIcon.onclick = async () => {
               await navigator.clipboard.writeText(shareLink);
-              new StatusMessage("📋 Sending link copied to clipboard");
+              new StatusMessage("📋 Sending link copied to clipboard", StatusType.Default, 2000);
             };
             // Delete shared note icon
             const deleteIcon = iconsEl.createEl("span");
@@ -371,38 +371,11 @@ export default class SendNotePlugin extends Plugin {
         })
       )
       .then((data) => {
-        console.log("data", data);
+        new StatusMessage(`Deleted note: ${data.Deleted?.[0]?.Key}`, StatusType.Default, 2000);
       })
       .catch((err) => {
         console.log("error", err);
       });
-    // const url = "https://pastebin.com/api/api_post.php";
-
-    // const formData = new URLSearchParams();
-    // // formData.append("api_dev_key", this.settings.pastebinApiKey);
-    // // formData.append("api_user_key", this.settings.pastebinUserKey);
-    // formData.append("api_paste_key", pasteKey);
-    // formData.append("api_option", "delete");
-
-    // try {
-    //   const response = await requestUrl({
-    //     url: url,
-    //     method: "POST",
-    //     headers: {
-    //       "Content-Type": "application/x-www-form-urlencoded",
-    //     },
-    //     body: formData.toString(),
-    //   });
-
-    //   const result = await response.text;
-
-    //   if (result.trim() === "Paste Removed") {
-    //   } else {
-    //     console.error("Error deleting paste:", result);
-    //   }
-    // } catch (error) {
-    //   console.error("Network or parsing error:", error);
-    // }
   }
 
   private generateRandomString(length = 5) {
