@@ -159,6 +159,9 @@ export default class SendNotePlugin extends Plugin {
 
     let folder = this.settings.folder;
 
+    console.log("Uploading file:", key);
+    console.log("Uploading to folder:", folder);
+
     const currentDate = new Date();
     folder = folder
       .replace("${year}", currentDate.getFullYear().toString())
@@ -172,14 +175,18 @@ export default class SendNotePlugin extends Plugin {
     const encoder = new TextEncoder();
     const utf8Array = encoder.encode(content);
 
-    await this.s3.send(
-      new PutObjectCommand({
-        Bucket: this.settings.bucket,
-        Key: key,
-        Body: utf8Array,
-        ContentType: "text/plain",
-      })
-    );
+    await this.s3
+      .send(
+        new PutObjectCommand({
+          Bucket: this.settings.bucket,
+          Key: key,
+          Body: utf8Array,
+          ContentType: "text/plain",
+        })
+      )
+      .catch((err) => {
+        console.error("Error uploading file:", err);
+      });
     let urlString = this.settings.imageUrlPath + key;
     if (this.settings.queryStringKey && this.settings.queryStringValue) {
       let urlObject = new URL(urlString);
