@@ -160,9 +160,6 @@ export default class SendNotePlugin extends Plugin {
 
     let folder = this.settings.folder;
 
-    console.log("Uploading file:", key);
-    console.log("Uploading to folder:", folder);
-
     const currentDate = new Date();
     folder = folder
       .replace("${year}", currentDate.getFullYear().toString())
