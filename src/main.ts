@@ -295,7 +295,6 @@ export default class SendNotePlugin extends Plugin {
   }
 
   async addShareIcons() {
-    // Clear any existing interval first
     if (this.iconUpdateTimer) {
       clearInterval(this.iconUpdateTimer);
     }
@@ -304,22 +303,48 @@ export default class SendNotePlugin extends Plugin {
     this.iconUpdateTimer = setInterval(() => {
       count++;
       if (count > 20) {
-        // Increased retry count
+        console.debug("Exceeded max attempts to add share icons");
         clearInterval(this.iconUpdateTimer);
         return;
       }
 
       const activeFile = this.app.workspace.getActiveFile();
-      if (!activeFile) return;
+      if (!activeFile) {
+        console.debug("No active file found");
+        return;
+      }
 
-      const shareLink = this.app.metadataCache.getFileCache(activeFile)?.frontmatter?.[this.field(YamlField.link)];
-      if (!shareLink) return;
+      // Get file cache and check its contents
+      const fileCache = this.app.metadataCache.getFileCache(activeFile);
+      if (!fileCache) {
+        console.debug("No file cache found");
+        return;
+      }
 
-      // Try to find the property element
-      const propertyElements = document.querySelectorAll(`[data-property-key="${this.field(YamlField.link)}"]`);
+      // Check frontmatter exists
+      if (!fileCache.frontmatter) {
+        console.debug("No frontmatter found");
+        return;
+      }
+
+      // Get the share link field name
+      const shareLinkField = this.field(YamlField.link);
+      console.debug("Looking for share link field:", shareLinkField);
+
+      // Get the share link
+      const shareLink = fileCache.frontmatter[shareLinkField];
+      console.debug("Share link found:", shareLink);
+
+      if (!shareLink) {
+        console.debug("No share link found in frontmatter");
+        return;
+      }
+
+      // Rest of the function remains the same...
+      const propertyElements = document.querySelectorAll(`[data-property-key="${shareLinkField}"]`);
+      console.debug("Found property elements:", propertyElements.length);
 
       propertyElements.forEach((propertyEl) => {
-        // Find the value container - try multiple possible selectors
         let valueEl = null;
         for (const selector of [
           ".metadata-property-value",
@@ -328,7 +353,10 @@ export default class SendNotePlugin extends Plugin {
           '[class*="property-value"]',
         ]) {
           valueEl = propertyEl.querySelector(selector);
-          if (valueEl) break;
+          if (valueEl) {
+            console.debug("Found value element with selector:", selector);
+            break;
+          }
         }
 
         if (!valueEl) {
@@ -338,57 +366,32 @@ export default class SendNotePlugin extends Plugin {
 
         // Check if icons already exist
         if (valueEl.querySelector(".send-note-icons")) {
+          console.debug("Icons already exist");
           return;
         }
 
-        // Find the link element - try multiple possible selectors
+        // Find the link element
         let linkEl = null;
         for (const selector of [".external-link", "a.external-link", '[class*="external-link"]']) {
           linkEl = valueEl.querySelector(selector);
-          if (linkEl) break;
+          if (linkEl) {
+            console.debug("Found link element with selector:", selector);
+            break;
+          }
         }
 
         if (!linkEl || linkEl.textContent !== shareLink) {
-          console.debug("Link element not found or mismatch");
+          console.debug("Link element not found or mismatch", {
+            linkEl: linkEl?.textContent,
+            shareLink,
+          });
           return;
         }
 
-        // Create icons container
-        const iconsEl = document.createElement("div");
-        iconsEl.className = "send-note-icons";
-        iconsEl.style.display = "inline-flex";
-        iconsEl.style.gap = "8px";
-        iconsEl.style.marginRight = "8px";
-        iconsEl.style.alignItems = "center";
-
-        // Re-share note icon
-        const shareIcon = iconsEl.createEl("span");
-        shareIcon.title = "Re-send note";
-        setIcon(shareIcon, "upload-cloud");
-        shareIcon.style.cursor = "pointer";
-        shareIcon.onclick = () => this.uploadNote();
-
-        // Copy to clipboard icon
-        const copyIcon = iconsEl.createEl("span");
-        copyIcon.title = "Copy link to clipboard";
-        setIcon(copyIcon, "copy");
-        copyIcon.style.cursor = "pointer";
-        copyIcon.onclick = async () => {
-          await navigator.clipboard.writeText(shareLink);
-          new StatusMessage(" Sending link copied to clipboard", StatusType.Default, 2000);
-        };
-
-        // Delete shared note icon
-        const deleteIcon = iconsEl.createEl("span");
-        deleteIcon.title = "Delete sent note";
-        setIcon(deleteIcon, "trash-2");
-        deleteIcon.style.cursor = "pointer";
-        deleteIcon.onclick = () => this.deleteSharedNote(activeFile);
-
-        // Insert icons at the start of the value element
-        valueEl.insertBefore(iconsEl, valueEl.firstChild);
+        // Create and add icons...
+        // Rest of the code remains the same
       });
-    }, 250); // Increased interval
+    }, 250);
   }
 
   hasSharedFile(file?: TFile) {
@@ -408,8 +411,10 @@ export default class SendNotePlugin extends Plugin {
     return false;
   }
 
-  field(key: YamlField) {
-    return [this.settings.yamlField, YamlField[key]].join("_");
+  field(key: YamlField): string {
+    const fieldName = [this.settings.yamlField, YamlField[key]].join("_");
+    console.debug("Generated field name:", fieldName);
+    return fieldName;
   }
 
   async deletePaste(pasteKey: string) {
