@@ -303,8 +303,8 @@ export default class SendNotePlugin extends Plugin {
     let count = 0;
     this.iconUpdateTimer = setInterval(() => {
       count++;
-      if (count > 12) {
-        // Increased max attempts
+      if (count > 20) {
+        // Increased retry count
         clearInterval(this.iconUpdateTimer);
         return;
       }
@@ -315,61 +315,80 @@ export default class SendNotePlugin extends Plugin {
       const shareLink = this.app.metadataCache.getFileCache(activeFile)?.frontmatter?.[this.field(YamlField.link)];
       if (!shareLink) return;
 
-      // Target both possible DOM structures
-      const propertySelectors = [
-        `div.metadata-property[data-property-key="${this.field(YamlField.link)}"]`,
-        `div[data-property-key="${this.field(YamlField.link)}"]`,
-      ];
+      // Try to find the property element
+      const propertyElements = document.querySelectorAll(`[data-property-key="${this.field(YamlField.link)}"]`);
 
-      propertySelectors.forEach((selector) => {
-        document.querySelectorAll(selector).forEach((propertyEl) => {
-          // Try different selectors for the value element
-          const valueEl =
-            propertyEl.querySelector("div.metadata-property-value") ||
-            propertyEl.querySelector(".metadata-property-value") ||
-            propertyEl.querySelector("[class*='metadata-property-value']");
+      propertyElements.forEach((propertyEl) => {
+        // Find the value container - try multiple possible selectors
+        let valueEl = null;
+        for (const selector of [
+          ".metadata-property-value",
+          ".property-value",
+          '[class*="metadata-property-value"]',
+          '[class*="property-value"]',
+        ]) {
+          valueEl = propertyEl.querySelector(selector);
+          if (valueEl) break;
+        }
 
-          if (!valueEl) return;
+        if (!valueEl) {
+          console.debug("Value element not found");
+          return;
+        }
 
-          // Try different selectors for the link element
-          const linkEl =
-            valueEl.querySelector("div.external-link") ||
-            valueEl.querySelector(".external-link") ||
-            valueEl.querySelector("a.external-link");
+        // Check if icons already exist
+        if (valueEl.querySelector(".send-note-icons")) {
+          return;
+        }
 
-          if (!linkEl || linkEl.textContent !== shareLink) return;
+        // Find the link element - try multiple possible selectors
+        let linkEl = null;
+        for (const selector of [".external-link", "a.external-link", '[class*="external-link"]']) {
+          linkEl = valueEl.querySelector(selector);
+          if (linkEl) break;
+        }
 
-          // Only add icons if they don't already exist
-          if (!valueEl.querySelector("div.send-note-icons")) {
-            const iconsEl = document.createElement("div");
-            iconsEl.classList.add("send-note-icons");
+        if (!linkEl || linkEl.textContent !== shareLink) {
+          console.debug("Link element not found or mismatch");
+          return;
+        }
 
-            // Re-share note icon
-            const shareIcon = iconsEl.createEl("span");
-            shareIcon.title = "Re-send note";
-            setIcon(shareIcon, "upload-cloud");
-            shareIcon.onclick = () => this.uploadNote();
+        // Create icons container
+        const iconsEl = document.createElement("div");
+        iconsEl.className = "send-note-icons";
+        iconsEl.style.display = "inline-flex";
+        iconsEl.style.gap = "8px";
+        iconsEl.style.marginRight = "8px";
+        iconsEl.style.alignItems = "center";
 
-            // Copy to clipboard icon
-            const copyIcon = iconsEl.createEl("span");
-            copyIcon.title = "Copy link to clipboard";
-            setIcon(copyIcon, "copy");
-            copyIcon.onclick = async () => {
-              await navigator.clipboard.writeText(shareLink);
-              new StatusMessage("📋 Sending link copied to clipboard", StatusType.Default, 2000);
-            };
+        // Re-share note icon
+        const shareIcon = iconsEl.createEl("span");
+        shareIcon.title = "Re-send note";
+        setIcon(shareIcon, "upload-cloud");
+        shareIcon.style.cursor = "pointer";
+        shareIcon.onclick = () => this.uploadNote();
 
-            // Delete shared note icon
-            const deleteIcon = iconsEl.createEl("span");
-            deleteIcon.title = "Delete sent note";
-            setIcon(deleteIcon, "trash-2");
-            deleteIcon.onclick = () => this.deleteSharedNote(activeFile);
+        // Copy to clipboard icon
+        const copyIcon = iconsEl.createEl("span");
+        copyIcon.title = "Copy link to clipboard";
+        setIcon(copyIcon, "copy");
+        copyIcon.style.cursor = "pointer";
+        copyIcon.onclick = async () => {
+          await navigator.clipboard.writeText(shareLink);
+          new StatusMessage(" Sending link copied to clipboard", StatusType.Default, 2000);
+        };
 
-            valueEl.prepend(iconsEl);
-          }
-        });
+        // Delete shared note icon
+        const deleteIcon = iconsEl.createEl("span");
+        deleteIcon.title = "Delete sent note";
+        setIcon(deleteIcon, "trash-2");
+        deleteIcon.style.cursor = "pointer";
+        deleteIcon.onclick = () => this.deleteSharedNote(activeFile);
+
+        // Insert icons at the start of the value element
+        valueEl.insertBefore(iconsEl, valueEl.firstChild);
       });
-    }, 100); // Increased interval slightly
+    }, 250); // Increased interval
   }
 
   hasSharedFile(file?: TFile) {

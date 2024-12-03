@@ -14,26 +14,33 @@
 }
 
 .send-note-icons {
-  display: inline-flex;
-  gap: 8px;
-  margin-right: 8px;
-  align-items: center;
+  display: inline-flex !important;
+  gap: 8px !important;
+  margin-right: 8px !important;
+  align-items: center !important;
+  vertical-align: middle !important;
 }
 
 .send-note-icons span {
-  cursor: pointer;
+  cursor: pointer !important;
   opacity: 0.7;
   transition: opacity 0.2s ease;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .send-note-icons span:hover {
   opacity: 1;
 }
 
-.theme-dark .send-note-icons span {
-  color: var(--text-normal);
+.theme-dark .send-note-icons span,
+.theme-light .send-note-icons span {
+  color: var(--text-normal) !important;
 }
 
-.theme-light .send-note-icons span {
-  color: var(--text-normal);
+.metadata-property-value .send-note-icons,
+.property-value .send-note-icons {
+  display: inline-flex !important;
+  margin-right: 8px !important;
 }
