@@ -14,11 +14,26 @@
 }
 
 .send-note-icons {
-  display: flex;
+  display: inline-flex;
+  gap: 8px;
+  margin-right: 8px;
+  align-items: center;
 }
 
-.send-note-icons > span {
-  display: flex;
-  margin-left: 6px;
+.send-note-icons span {
   cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.send-note-icons span:hover {
+  opacity: 1;
+}
+
+.theme-dark .send-note-icons span {
+  color: var(--text-normal);
+}
+
+.theme-light .send-note-icons span {
+  color: var(--text-normal);
 }

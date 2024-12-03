@@ -19,6 +19,7 @@ export default class SendNotePlugin extends Plugin {
   settingsPage: SendNoteSettingsTab;
   ui: UI;
   s3: S3Client;
+  private iconUpdateTimer: NodeJS.Timeout;
 
   // Expose some tools in the plugin object
   hash = shortHash;
@@ -293,36 +294,62 @@ export default class SendNotePlugin extends Plugin {
     }
   }
 
-  addShareIcons() {
-    // I tried using onLayoutReady() here rather than a timeout/interval, but it did not work.
-    // It seems that the layout is still updating even after it is "ready".
+  async addShareIcons() {
+    // Clear any existing interval first
+    if (this.iconUpdateTimer) {
+      clearInterval(this.iconUpdateTimer);
+    }
+
     let count = 0;
-    const timer = setInterval(() => {
+    this.iconUpdateTimer = setInterval(() => {
       count++;
-      if (count > 8) {
-        clearInterval(timer);
+      if (count > 12) {
+        // Increased max attempts
+        clearInterval(this.iconUpdateTimer);
         return;
       }
+
       const activeFile = this.app.workspace.getActiveFile();
       if (!activeFile) return;
+
       const shareLink = this.app.metadataCache.getFileCache(activeFile)?.frontmatter?.[this.field(YamlField.link)];
       if (!shareLink) return;
-      document
-        .querySelectorAll(`div.metadata-property[data-property-key="${this.field(YamlField.link)}"]`)
-        .forEach((propertyEl) => {
-          const valueEl = propertyEl.querySelector("div.metadata-property-value");
-          const linkEl = valueEl?.querySelector("div.external-link") as HTMLElement;
-          if (linkEl?.innerText !== shareLink) return;
-          // Remove existing elements
-          // valueEl?.querySelectorAll('div.share-note-icons').forEach(el => el.remove())
-          if (valueEl && !valueEl.querySelector("div.send-note-icons")) {
+
+      // Target both possible DOM structures
+      const propertySelectors = [
+        `div.metadata-property[data-property-key="${this.field(YamlField.link)}"]`,
+        `div[data-property-key="${this.field(YamlField.link)}"]`,
+      ];
+
+      propertySelectors.forEach((selector) => {
+        document.querySelectorAll(selector).forEach((propertyEl) => {
+          // Try different selectors for the value element
+          const valueEl =
+            propertyEl.querySelector("div.metadata-property-value") ||
+            propertyEl.querySelector(".metadata-property-value") ||
+            propertyEl.querySelector("[class*='metadata-property-value']");
+
+          if (!valueEl) return;
+
+          // Try different selectors for the link element
+          const linkEl =
+            valueEl.querySelector("div.external-link") ||
+            valueEl.querySelector(".external-link") ||
+            valueEl.querySelector("a.external-link");
+
+          if (!linkEl || linkEl.textContent !== shareLink) return;
+
+          // Only add icons if they don't already exist
+          if (!valueEl.querySelector("div.send-note-icons")) {
             const iconsEl = document.createElement("div");
             iconsEl.classList.add("send-note-icons");
+
             // Re-share note icon
             const shareIcon = iconsEl.createEl("span");
             shareIcon.title = "Re-send note";
             setIcon(shareIcon, "upload-cloud");
             shareIcon.onclick = () => this.uploadNote();
+
             // Copy to clipboard icon
             const copyIcon = iconsEl.createEl("span");
             copyIcon.title = "Copy link to clipboard";
@@ -331,15 +358,18 @@ export default class SendNotePlugin extends Plugin {
               await navigator.clipboard.writeText(shareLink);
               new StatusMessage("📋 Sending link copied to clipboard", StatusType.Default, 2000);
             };
+
             // Delete shared note icon
             const deleteIcon = iconsEl.createEl("span");
             deleteIcon.title = "Delete sent note";
             setIcon(deleteIcon, "trash-2");
             deleteIcon.onclick = () => this.deleteSharedNote(activeFile);
+
             valueEl.prepend(iconsEl);
           }
         });
-    }, 50);
+      });
+    }, 100); // Increased interval slightly
   }
 
   hasSharedFile(file?: TFile) {
