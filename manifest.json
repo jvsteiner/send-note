@@ -1,7 +1,7 @@
 {
 	"id": "send-note",
 	"name": "Send Note",
-	"version": "0.8.33",
+	"version": "0.8.34",
 	"minAppVersion": "0.15.0",
 	"description": "Instantly send a note, to other obsidian users so they can import them into their vault. It uses AWS S3 as a storage backend. Data is shared encrypted by default, and only you and the person you send it to have the key.",
 	"author": "Jamie Steiner",
