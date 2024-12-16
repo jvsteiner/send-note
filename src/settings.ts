@@ -202,7 +202,7 @@ export class SendNoteSettingsTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("Custom Image URL")
+      .setName("Custom image URL")
       .setDesc("Advanced option to force inserting custom image URLs. This option is helpful if you are using CDN.")
       .addText((text) =>
         text.setValue(this.plugin.settings.customImageUrl).onChange(async (value) => {
