@@ -87,7 +87,7 @@ export class SendNoteSettingsTab extends PluginSettingTab {
     containerEl.empty();
 
     new Setting(containerEl)
-      .setName("AWS Access Key ID")
+      .setName("AWS access key ID")
       .setDesc("AWS access key ID for a user with S3 access.")
       .addText((text) => {
         wrapTextWithPasswordHide(text);
@@ -101,7 +101,7 @@ export class SendNoteSettingsTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("AWS Secret Key")
+      .setName("AWS secret key")
       .setDesc("AWS secret key for that user.")
       .addText((text) => {
         wrapTextWithPasswordHide(text);
@@ -128,7 +128,7 @@ export class SendNoteSettingsTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("S3 Bucket")
+      .setName("S3 bucket")
       .setDesc("S3 bucket name.")
       .addText((text) =>
         text
@@ -163,7 +163,7 @@ export class SendNoteSettingsTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("Custom S3 Endpoint")
+      .setName("Custom S3 endpoint")
       .setDesc("Optionally set a custom endpoint for any S3 compatible storage provider.")
       .addText((text) =>
         text
@@ -180,7 +180,7 @@ export class SendNoteSettingsTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("S3 Path Style URLs")
+      .setName("S3 path style URLs")
       .setDesc(
         "Advanced option to force using (legacy) path-style s3 URLs (s3.myhost.com/bucket) instead of the modern AWS standard host-style (bucket.s3.myhost.com)."
       )
